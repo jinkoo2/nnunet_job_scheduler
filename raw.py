@@ -8,7 +8,7 @@ from logger import logger, log_exception as LE, log_and_raise_exception as LER
 
 from config import get_config
 nnunet_data_dir = get_config()["data_dir"] 
-print(f'nnunet_data_dir={nnunet_data_dir}')
+#print(f'nnunet_data_dir={nnunet_data_dir}')
 
 nnunet_raw_dir =  os.path.join(nnunet_data_dir,'raw')
 nnunet_preprocessed_dir =  os.path.join(nnunet_data_dir,'preprocessed')
@@ -32,7 +32,7 @@ def read_dataset_json(dirname):
         LE(f'Failed reading file {json_file}. Exception: {e}')
         return None
     
-def get_dataset_list():
+def get_dataset_json_list():
     """Retrieve dataset list asynchronously."""
     dirnames = get_dataset_dirs(nnunet_raw_dir)
     dataset_list = [read_dataset_json(dirname) for dirname in dirnames]
@@ -47,9 +47,28 @@ def get_dataset_list():
     return dataset_list
 
 def get_dataset_id_list():
-    return get_dataset_dirs(nnunet_raw_dir)
+    return sorted(get_dataset_dirs(nnunet_raw_dir))
 
+def get_dataset_num_list():
+    id_list = get_dataset_id_list()
+    num_list = [re.search(r'Dataset(\d+)_', name).group(1) for name in id_list]
+    return num_list
+
+import json
 if __name__ == '__main__':
+    print('=== datasets ===')
+    print(json.dumps(get_dataset_id_list(), indent=4))
+
+    print('=== dataset num list ===')
+    print(json.dumps(get_dataset_num_list(), indent=4))
+    
+    print('=== dataset json list ===')
+    print(json.dumps(get_dataset_json_list(), indent=4))
+
+    
+
     print('done')
+
+
 
 
