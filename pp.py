@@ -16,7 +16,6 @@ import raw
 import json
 
 
-
 def plan_json_file(id):
     return os.path.join(nnunet_preprocessed_dir, id, 'nnUNetPlans.json')
 
@@ -34,8 +33,8 @@ def pp_complated(id):
     return True
 
 if __name__ == '__main__':
-    print('*****************************')
-    id_list = raw.get_dataset_id_list()
+    print('******** dataset ready for pp *********************')
+    id_list = raw.get_dataset_id_list_ready_for_pp(min_num_of_training_images=10)
 
     for id in id_list:
         print(f'=== {id} ===')

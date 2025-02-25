@@ -54,6 +54,36 @@ def get_dataset_num_list():
     num_list = [re.search(r'Dataset(\d+)_', name).group(1) for name in id_list]
     return num_list
 
+def get_num_of_training_images(id, file_ending):
+    dir = os.path.join(nnunet_raw_dir, id, 'imagesTr')
+    if not os.path.exists(dir):
+        return -1
+    
+    return len([f for f in os.listdir(dir) if f.endswith(file_ending)])
+
+def pp_ready(id, min_num_of_training_images):
+    dataset_json = read_dataset_json(id)
+    numTraining = dataset_json['numTraining']
+    if numTraining < min_num_of_training_images:
+        return {'ready':False, 'reason':f'Not enought number of images (N={numTraining}, required={min_num_of_training_images}).'}
+
+    file_ending = dataset_json['file_ending']
+    num_of_images_found = get_num_of_training_images(id, file_ending)
+    
+    if (numTraining > 10 and num_of_images_found >= numTraining):
+        return {'ready':True,'reason':''}
+    else:
+        return {'ready':False, 'reason':f'Something wrong: Number of training images found (N={num_of_images_found}, file_ending={file_ending}) < numTraining in dataset.json file for {id}'}
+
+def get_dataset_id_list_ready_for_pp(min_num_of_training_images):
+    list = []
+    for id in get_dataset_id_list():
+        ret = pp_ready(id, min_num_of_training_images)
+        if ret['ready']:
+            list.append(id)
+    
+    return list
+
 import json
 if __name__ == '__main__':
     print('=== datasets ===')
@@ -65,7 +95,19 @@ if __name__ == '__main__':
     print('=== dataset json list ===')
     print(json.dumps(get_dataset_json_list(), indent=4))
 
+    print('Training Ready?')
+    for id in get_dataset_id_list():
+        ret = pp_ready(id, min_num_of_training_images=10)
+        if ret['ready']:
+            print(f'dataset[{id}] - Yes')
+        else:
+            print(f'dataset[{id}] - No ({ret["reason"]})')
     
+    datasets_ready_for_training = get_dataset_id_list_ready_for_pp(min_num_of_training_images=10)
+    print('')
+    print('[Preprocesisng Read]')
+    for id in datasets_ready_for_training:
+        print(id)
 
     print('done')
 
