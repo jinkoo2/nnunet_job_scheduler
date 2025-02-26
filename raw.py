@@ -61,6 +61,25 @@ def get_num_of_training_images(id, file_ending):
     
     return len([f for f in os.listdir(dir) if f.endswith(file_ending)])
 
+def get_training_image_id_list(id):
+    
+    # file_ending
+    dataset_json = read_dataset_json(id)
+    #print(json.dumps(dataset_json, indent=4))
+
+    file_ending = dataset_json['file_ending']
+
+    # get unique image ids
+    dir = os.path.join(nnunet_raw_dir, id, 'imagesTr')
+    
+    image_files = [f for f in os.listdir(dir) if f.endswith(file_ending)]
+
+    # remove file_ending and _0000
+    n_tail = len('_0000')+len(file_ending)
+    image_files = [f[0:-n_tail] for f in image_files]
+    
+    return sorted(list(set(image_files)))
+
 def pp_ready(id, min_num_of_training_images):
     dataset_json = read_dataset_json(id)
     numTraining = dataset_json['numTraining']
@@ -86,6 +105,13 @@ def get_dataset_id_list_ready_for_pp(min_num_of_training_images):
 
 import json
 if __name__ == '__main__':
+
+    image_file_ids = get_training_image_id_list('Dataset009_Spleen')
+    for file in image_file_ids:
+        print(file)
+
+    exit(0)
+    
     print('=== datasets ===')
     print(json.dumps(get_dataset_id_list(), indent=4))
 
