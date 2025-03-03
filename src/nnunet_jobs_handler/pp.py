@@ -11,6 +11,8 @@ nnunet_data_dir = get_config()["data_dir"]
 nnunet_raw_dir =  os.path.join(nnunet_data_dir,'raw')
 nnunet_preprocessed_dir =  os.path.join(nnunet_data_dir,'preprocessed')
 nnunet_results_dir =  os.path.join(nnunet_data_dir,'results')
+script_output_files_dir = get_config()['script_output_files_dir']
+
 
 import raw
 import json
@@ -137,15 +139,99 @@ def pp_status(id):
         }
 
 def pp_submit_job(id):
+    
+
+    job_num = id[7:10]
+
+    job_name = f'pp_{job_num}'
+
+    print(f'checking job {job_name} is if scheduled or already running')
+    from simple_slurm_server import slurm_commands
+    print(f'pp jost submitted: {job_num}')
+    jobs = slurm_commands.get_jobs_of_user('jinkokim')
+    
+    jobs_of_name = [job for job in jobs if job['name'] == job_name]
+
+    if len(jobs_of_name) > 0:
+        print(f'job is already in the queue ')
+        job = jobs_of_name[0]
+        print(json.dumps(job, indent=4))
+        return 
+    
+    conf = get_config()
+    venv_dir = conf['venv_dir']
+    nnunet_dir = conf['nnunet_dir']
+    raw_dir = conf['raw_dir']
+    preprocessed_dir = conf['preprocessed_dir']
+    results_dir = conf['results_dir']
+
+    job_name = f'pp_{job_num}'
+    partition = 'gpu'
+    num_of_nodes = 1
+    ntasks_per_node = 28
+    num_of_gpus_per_node = 1
+    num_of_hours = 1
+    email = 'jinkoo.kim@stonybrook.edu'
+    dataset_num = job_num
+    planner='ExperimentPlanner'
+
+    cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} --verbose --verify_dataset_integrity '
+    
+    case_scripts_dir = os.path.join(script_output_files_dir, job_num)
+    if not os.path.exists(case_scripts_dir):
+        os.makedirs(case_scripts_dir)
+
+    script_file = os.path.join(case_scripts_dir, 'pp.slurm')
+
+    log_file = script_file+'.log'
+    
+    slurm_head = f'''#!/bin/bash
+#SBATCH --job-name={job_name}
+#SBATCH --output={log_file}
+#SBATCH --ntasks-per-node={ntasks_per_node}
+#SBATCH --nodes={num_of_nodes}
+#SBATCH --time={num_of_hours}:00:00
+#SBATCH -p {partition}
+#SBATCH --gres=gpu:{num_of_gpus_per_node}            # number of GPUs per node (gres=gpu:N)
+#SBATCH --gpus={num_of_gpus_per_node} # number of GPUs per node (gres=gpu:N), this is a backup of --gres
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user={email}
+'''
+
+    script = f'''{slurm_head}
+
+source {venv_dir}/bin/activate
+cd {nnunet_dir}
+
+export nnUNet_raw= "{raw_dir}"
+export nnUNet_preprocessed= "{preprocessed_dir}"
+export nnUNet_results= "{results_dir}"
+
+{cmd_line}
+'''
+    
+    print(f'saving script file - {script_file}')
+    with open(script_file, 'w') as file:
+        file.write(script)
+
+
+    cmd = f'module load slurm && sbatch {script_file}'
+    print(f'running "{cmd}"')
+    import subprocess
+    subprocess.run(cmd, shell=True)
+
     from simple_slurm_server import slurm_commands
 
-    jobs = slurm_commands.get_jobs()
+    
+    print(f'pp jost submitted: {job_num}')
+
+    jobs = slurm_commands.get_jobs_of_user('jinkokim')
 
     print(f'slurm jobs')
     print(json.dumps(jobs, indent=4))
     
-    
-    print(f'pp jost submitted: {id}')
+
+
 
 
 if __name__ == '__main__':
