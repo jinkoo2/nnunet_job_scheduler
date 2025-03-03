@@ -136,11 +136,24 @@ def pp_status(id):
             "all_processed_images_exist_in_conf_folders": all_processed_images_exist_in_conf_folders(id)
         }
 
+def pp_submit_job(id):
+    from simple_slurm_server import slurm_commands
+
+    jobs = slurm_commands.get_jobs()
+
+    print(f'slurm jobs')
+    print(json.dumps(jobs, indent=4))
+    
+    
+    print(f'pp jost submitted: {id}')
+
+
 if __name__ == '__main__':
     print('******** dataset ready for pp *********************')
     id_list = raw.get_dataset_id_list_ready_for_pp(min_num_of_training_images=10)
 
     # get pp status list
+    id_list_to_pp = []
     for id in id_list:
         print(f'=== {id} ===')
         if pp_complated(id):
@@ -148,6 +161,13 @@ if __name__ == '__main__':
         else:
             print(f'\t{id} - NOT completed')
             print(json.dumps(pp_status(id), indent=4))
+            id_list_to_pp.append(id)
+
+            
+    # submit pp jobs
+    print('****submititng pp jobs****')
+    for id in id_list_to_pp:
+        pp_submit_job(id)
 
     print('done')
 

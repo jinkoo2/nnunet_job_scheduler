@@ -1,0 +1,18 @@
+[project]
+name = "nnunet-jobs-handler"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Jinkoo Kim"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "simple-slurm-server @ git+https://github.com/jinkoo2/simple-slurm-server.git@main"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
