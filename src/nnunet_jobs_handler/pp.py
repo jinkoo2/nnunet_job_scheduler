@@ -1,33 +1,33 @@
 
-import json
-import os
-import re
+import json, os, re
 from pathlib import Path
 
-from logger import logger, log_exception as LE, log_and_raise_exception as LER
+from logger import log, log_exception as LE, log_and_raise_exception as LER
 
 from config import get_config
-nnunet_data_dir = get_config()["data_dir"] 
-nnunet_raw_dir =  os.path.join(nnunet_data_dir,'raw')
-nnunet_preprocessed_dir =  os.path.join(nnunet_data_dir,'preprocessed')
-nnunet_results_dir =  os.path.join(nnunet_data_dir,'results')
-script_output_files_dir = get_config()['script_output_files_dir']
-
+conf = get_config()
+nnunet_preprocessed_dir =  conf['preprocessed_dir']
+log(f'preprocessed_dir={nnunet_preprocessed_dir}')
 
 import raw
-import json
 
-def path_found(dir_or_file):
-    if os.path.exists(dir_or_file):
-        return {
-            'exists': True,
-            'reason': ''
-            }
-    else:
-        return {
-            'exists': False,
-            'reason': f'Not found - {dir_or_file}'
-            }
+from utils import path_found
+
+def id_list():
+    """Get a list of data set."""
+    pattern = r"^Dataset\d{3}_.+$"  # Regex for Datasetxxx_yyyyyy format
+    return [entry.name for entry in Path(nnunet_preprocessed_dir).iterdir() if entry.is_dir() and re.match(pattern, entry.name)]
+
+def get_dataset_id_list():
+    return id_list()
+
+def get_dataset_num_list():
+    id_list = get_dataset_id_list()
+    num_list = [re.search(r'Dataset(\d+)_', name).group(1) for name in id_list]
+    return num_list
+
+def get_complated_dataset_id_list():
+    return [id for id in id_list() if complated(id)]
 
 def case_dir(id):
     return os.path.join(nnunet_preprocessed_dir, id)
@@ -55,6 +55,14 @@ def plan_conf_dir_list(id):
         list.append(conf_dir)
     return list
 
+def plan_conf_list(id):
+    confs = plan_json(id)['configurations']
+    return list(confs.keys())
+
+def is_2d(id):
+    confs = plan_conf_list(id)
+    return len(confs) ==1 and confs[0] == '2d'
+
 def all_plan_conf_dirs_exists(id):
     conf_dirs = plan_conf_dir_list(id)
     for conf_dir in conf_dirs:
@@ -67,12 +75,13 @@ def all_plan_conf_dirs_exists(id):
     }
 
 def all_processed_images_exist_in_conf_folders(id):
-    
-    # file_ending
-    file_ending = dataset_json(id)['file_ending']
-    
     # training image file ids from raw
     raw_train_image_ids = raw.get_training_image_id_list(id)
+    if len(raw_train_image_ids) == 0:
+        return {
+            'exists':False,
+            'reason':'there is no training image in raw_dir'
+        } 
 
     # configuration dir list
     conf_dirs = plan_conf_dir_list(id)
@@ -110,16 +119,15 @@ def dataset_json(id):
         data = json.load(f)
     return data
 
-def pp_complated(id):
-    s = pp_status(id)
-    return s['case_dir_exists']['exists'] and \
-            s['nnUNetPlans_json_exists']['exists'] and \
-            s['dataset_json_exists']['exists'] and \
-            s['all_plan_conf_dirs_exists']['exists'] and \
-            s['all_processed_images_exist_in_conf_folders']['exists']
+def complated(id):
+    s = status(id)
+    for key in s.keys():
+        if not s[key]['exists']:
+            return False
+    return True
 
 
-def pp_status(id):
+def status(id):
 
     if not case_dir_exists(id)['exists']:
         return {
@@ -138,24 +146,22 @@ def pp_status(id):
             "all_processed_images_exist_in_conf_folders": all_processed_images_exist_in_conf_folders(id)
         }
 
-def pp_submit_job(id):
+def submit_slurm_job(id):
     
-
     job_num = id[7:10]
 
     job_name = f'pp_{job_num}'
 
-    print(f'checking job {job_name} is if scheduled or already running')
+    log(f'checking job {job_name} is already in the queue or running')
     from simple_slurm_server import slurm_commands
-    print(f'pp jost submitted: {job_num}')
     jobs = slurm_commands.get_jobs_of_user('jinkokim')
     
     jobs_of_name = [job for job in jobs if job['name'] == job_name]
 
     if len(jobs_of_name) > 0:
-        print(f'job is already in the queue ')
+        log(f'job is already in the queue ')
         job = jobs_of_name[0]
-        print(json.dumps(job, indent=4))
+        log(json.dumps(job, indent=4))
         return 
     
     conf = get_config()
@@ -177,6 +183,7 @@ def pp_submit_job(id):
 
     cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} --verbose --verify_dataset_integrity '
     
+    script_output_files_dir = conf['script_output_files_dir']
     case_scripts_dir = os.path.join(script_output_files_dir, job_num)
     if not os.path.exists(case_scripts_dir):
         os.makedirs(case_scripts_dir)
@@ -210,53 +217,52 @@ export nnUNet_results= "{results_dir}"
 {cmd_line}
 '''
     
-    print(f'saving script file - {script_file}')
+    log(f'script={script}')
+
+    log(f'saving script file - {script_file}')
     with open(script_file, 'w') as file:
         file.write(script)
 
 
     cmd = f'module load slurm && sbatch {script_file}'
-    print(f'running "{cmd}"')
+    log(f'running "{cmd}"')
     import subprocess
     subprocess.run(cmd, shell=True)
 
     from simple_slurm_server import slurm_commands
 
     
-    print(f'pp jost submitted: {job_num}')
+    log(f'pp jost submitted: {job_num}')
 
     jobs = slurm_commands.get_jobs_of_user('jinkokim')
 
-    print(f'slurm jobs')
-    print(json.dumps(jobs, indent=4))
+    log(f'slurm jobs')
+    log(json.dumps(jobs, indent=4))
     
 
-
-
-
-if __name__ == '__main__':
-    print('******** dataset ready for pp *********************')
+def check_and_submit_pp_jobs():
+    log('******** dataset ready for pp *********************')
     id_list = raw.get_dataset_id_list_ready_for_pp(min_num_of_training_images=10)
 
     # get pp status list
     id_list_to_pp = []
     for id in id_list:
-        print(f'=== {id} ===')
-        if pp_complated(id):
-            print(f'\t{id} - Completed')
+        log(f'=== {id} ===')
+        if complated(id):
+            log(f'\t{id} - Completed')
         else:
-            print(f'\t{id} - NOT completed')
-            print(json.dumps(pp_status(id), indent=4))
+            log(f'\t{id} - NOT completed')
+            log(json.dumps(status(id), indent=4))
             id_list_to_pp.append(id)
-
             
     # submit pp jobs
-    print('****submititng pp jobs****')
+    log('****submititng pp jobs****')
     for id in id_list_to_pp:
-        pp_submit_job(id)
+        submit_slurm_job(id)
 
-    print('done')
-
+if __name__ == '__main__':
+    check_and_submit_pp_jobs()
+    log('done')
 
 
 

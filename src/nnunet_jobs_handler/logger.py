@@ -36,6 +36,9 @@ console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(formatter)
 logger.addHandler(console_handler)
 
+def log(msg):
+    logger.info(msg)
+    
 # Function to log an exception
 def log_exception(e):
     logger.error("Exception occurred", exc_info=e)

@@ -57,3 +57,15 @@ def get_unique_file_path(base_filename, directory):
 
 
 
+def path_found(dir_or_file):
+    if os.path.exists(dir_or_file):
+        return {
+            'exists': True,
+            'reason': ''
+            }
+    else:
+        return {
+            'exists': False,
+            'reason': f'Not found - {dir_or_file}'
+            }
+

@@ -4,20 +4,19 @@ import os
 import re
 from pathlib import Path
 
-from logger import logger, log_exception as LE, log_and_raise_exception as LER
+from logger import log, log_exception as LE, log_and_raise_exception as LER
 
 from config import get_config
 nnunet_data_dir = get_config()["data_dir"] 
-#print(f'nnunet_data_dir={nnunet_data_dir}')
+#log(f'nnunet_data_dir={nnunet_data_dir}')
 
 nnunet_raw_dir =  os.path.join(nnunet_data_dir,'raw')
-nnunet_preprocessed_dir =  os.path.join(nnunet_data_dir,'preprocessed')
-nnunet_results_dir =  os.path.join(nnunet_data_dir,'results')
 
-def get_dataset_dirs(folder_path):
+
+def id_list():
     """Get a list of data set."""
     pattern = r"^Dataset\d{3}_.+$"  # Regex for Datasetxxx_yyyyyy format
-    return [entry.name for entry in Path(folder_path).iterdir() if entry.is_dir() and re.match(pattern, entry.name)]
+    return sorted([entry.name for entry in Path(nnunet_raw_dir).iterdir() if entry.is_dir() and re.match(pattern, entry.name)])
 
 def read_dataset_json(dirname):
     """Read dataset.json file asynchronously."""
@@ -34,7 +33,7 @@ def read_dataset_json(dirname):
     
 def get_dataset_json_list():
     """Retrieve dataset list asynchronously."""
-    dirnames = get_dataset_dirs(nnunet_raw_dir)
+    dirnames = id_list()
     dataset_list = [read_dataset_json(dirname) for dirname in dirnames]
     
     # Remove None values (failed reads)
@@ -42,12 +41,12 @@ def get_dataset_json_list():
 
     dataset_list = sorted(dataset_list, key=lambda x: x["id"])
 
-    logger.info(f'dataset_list={dataset_list}')
+    log(f'dataset_list={dataset_list}')
 
     return dataset_list
 
 def get_dataset_id_list():
-    return sorted(get_dataset_dirs(nnunet_raw_dir))
+    return id_list()
 
 def get_dataset_num_list():
     id_list = get_dataset_id_list()
@@ -65,12 +64,15 @@ def get_training_image_id_list(id):
     
     # file_ending
     dataset_json = read_dataset_json(id)
-    #print(json.dumps(dataset_json, indent=4))
+    #log(json.dumps(dataset_json, indent=4))
 
     file_ending = dataset_json['file_ending']
 
     # get unique image ids
     dir = os.path.join(nnunet_raw_dir, id, 'imagesTr')
+    
+    if not os.path.exists(dir):
+        return []
     
     image_files = [f for f in os.listdir(dir) if f.endswith(file_ending)]
 
@@ -105,37 +107,27 @@ def get_dataset_id_list_ready_for_pp(min_num_of_training_images):
 
 import json
 if __name__ == '__main__':
+   
+    log('=== datasets ===')
+    log(json.dumps(get_dataset_id_list(), indent=4))
 
-    image_file_ids = get_training_image_id_list('Dataset009_Spleen')
+    log('=== dataset num list ===')
+    log(json.dumps(get_dataset_num_list(), indent=4))
+    
+    log('=== dataset json list ===')
+    log(json.dumps(get_dataset_json_list(), indent=4))
+
+    log('=== datasets ready for pp ===')
+    datasets_ready_for_pp = get_dataset_id_list_ready_for_pp(min_num_of_training_images=10)
+    for id in datasets_ready_for_pp:
+        log(id)
+
+    log(f'=== training_image_id_list for  {datasets_ready_for_pp[0]} ===')
+    image_file_ids = get_training_image_id_list(datasets_ready_for_pp[0])
     for file in image_file_ids:
-        print(file)
+        log(file)
 
-    exit(0)
-    
-    print('=== datasets ===')
-    print(json.dumps(get_dataset_id_list(), indent=4))
-
-    print('=== dataset num list ===')
-    print(json.dumps(get_dataset_num_list(), indent=4))
-    
-    print('=== dataset json list ===')
-    print(json.dumps(get_dataset_json_list(), indent=4))
-
-    print('Training Ready?')
-    for id in get_dataset_id_list():
-        ret = pp_ready(id, min_num_of_training_images=10)
-        if ret['ready']:
-            print(f'dataset[{id}] - Yes')
-        else:
-            print(f'dataset[{id}] - No ({ret["reason"]})')
-    
-    datasets_ready_for_training = get_dataset_id_list_ready_for_pp(min_num_of_training_images=10)
-    print('')
-    print('[Preprocesisng Read]')
-    for id in datasets_ready_for_training:
-        print(id)
-
-    print('done')
+    log('done')
 
 
 
