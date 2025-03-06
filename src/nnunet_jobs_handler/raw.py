@@ -4,14 +4,12 @@ import os
 import re
 from pathlib import Path
 
-from logger import log, log_exception as LE, log_and_raise_exception as LER
+from logger import log, log_exception as LE
 
-from config import get_config
-nnunet_data_dir = get_config()["data_dir"] 
-#log(f'nnunet_data_dir={nnunet_data_dir}')
+from config import config
 
-nnunet_raw_dir =  os.path.join(nnunet_data_dir,'raw')
-
+nnunet_data_dir = config['data_dir'] 
+nnunet_raw_dir =  config['raw_dir']
 
 def id_list():
     """Get a list of data set."""
@@ -82,11 +80,11 @@ def get_training_image_id_list(id):
     
     return sorted(list(set(image_files)))
 
-def pp_ready(id, min_num_of_training_images):
+def pp_ready(id, min_num_of_required_training_images):
     dataset_json = read_dataset_json(id)
     numTraining = dataset_json['numTraining']
-    if numTraining < min_num_of_training_images:
-        return {'ready':False, 'reason':f'Not enought number of images (N={numTraining}, required={min_num_of_training_images}).'}
+    if numTraining < min_num_of_required_training_images:
+        return {'ready':False, 'reason':f'Not enought number of images (N={numTraining}, required={min_num_of_required_training_images}).'}
 
     file_ending = dataset_json['file_ending']
     num_of_images_found = get_num_of_training_images(id, file_ending)
@@ -96,10 +94,10 @@ def pp_ready(id, min_num_of_training_images):
     else:
         return {'ready':False, 'reason':f'Something wrong: Number of training images found (N={num_of_images_found}, file_ending={file_ending}) < numTraining in dataset.json file for {id}'}
 
-def get_dataset_id_list_ready_for_pp(min_num_of_training_images):
+def get_dataset_id_list_ready_for_pp(min_num_of_required_training_images):
     list = []
     for id in get_dataset_id_list():
-        ret = pp_ready(id, min_num_of_training_images)
+        ret = pp_ready(id, min_num_of_required_training_images)
         if ret['ready']:
             list.append(id)
     
@@ -118,7 +116,7 @@ if __name__ == '__main__':
     log(json.dumps(get_dataset_json_list(), indent=4))
 
     log('=== datasets ready for pp ===')
-    datasets_ready_for_pp = get_dataset_id_list_ready_for_pp(min_num_of_training_images=10)
+    datasets_ready_for_pp = get_dataset_id_list_ready_for_pp(min_num_of_required_training_images=10)
     for id in datasets_ready_for_pp:
         log(id)
 

@@ -1,14 +1,13 @@
-import time, json
+import time
 
 from logger import log, log_exception
 
 log('App starting...')
 
-from config import get_config
-cfg = get_config()
+from config import config
 log(f'=== [config] ===')
-for key in cfg:
-    log(f'{key}={cfg[key]}')
+for key in config:
+    log(f'{key}={config[key]}')
 
 import pp, tr
 
@@ -32,7 +31,7 @@ while True:
         log('Exception in tr.check_and_submit_tr_jobs()!')
         log_exception(e)
 
-    sleep_min = 1
+    sleep_min = 60
     log(f'sleeping for {sleep_min} minutes...')
     time.sleep(sleep_min * 60)
     

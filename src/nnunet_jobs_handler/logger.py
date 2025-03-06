@@ -2,20 +2,18 @@ import logging
 import os
 from datetime import datetime
 
-from config import get_config
-cfg = get_config()
-print(f'cfg={cfg}')
-log_dir = cfg["log_dir"] 
+from config import config
 
+# log dir
+log_dir = config["log_dir"] 
 print(f'log_dir={log_dir}')
-
-# Define log directory
-LOG_DIR = log_dir
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
+if not os.path.exists(log_dir):
+    print('log_dir not found. So, creating one...')
+    os.makedirs(log_dir)
 
 # Define log file name with timestamp
-log_filename = os.path.join(LOG_DIR, f"{datetime.now().strftime('%Y-%m-%d')}.log")
+log_file = os.path.join(log_dir, f"{datetime.now().strftime('%Y-%m-%d')}.log")
+print(f'log_file={log_file}')
 
 # Set up logger
 logger = logging.getLogger("app_logger")
@@ -25,7 +23,7 @@ logger.setLevel(logging.DEBUG)  # Change to logging.INFO if you don't want debug
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 # File Handler
-file_handler = logging.FileHandler(log_filename, encoding="utf-8")
+file_handler = logging.FileHandler(log_file, encoding="utf-8")
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
@@ -47,11 +45,11 @@ def log_and_raise_exception(e):
     logger.error("Exception occurred", exc_info=e)
     raise e
 
-from fastapi import Request
-def log_request(request: Request):
-    client_ip = request.client.host if request.client else "Unknown IP"
-    user_agent = request.headers.get("User-Agent", "Unknown User-Agent")
-    logger.info(f"Received request from {client_ip}, User-Agent: {user_agent}")
+#from fastapi import Request
+#def log_request(request: Request):
+#    client_ip = request.client.host if request.client else "Unknown IP"
+#    user_agent = request.headers.get("User-Agent", "Unknown User-Agent")
+#    logger.info(f"Received request from {client_ip}, User-Agent: {user_agent}")
 
 # Example usage:
 if __name__ == "__main__":

@@ -16,6 +16,21 @@ def get_config():
     data_dir = os.getenv('data_dir')
     log_dir = os.getenv('log_dir')
 
+    nnunet_trainer = os.getenv('nnunet_trainer')
+    nnunet_planner = os.getenv('nnunet_planner')
+
+    slurm_user = os.getenv('slurm_user')
+    slurm_email = os.getenv('slurm_email')
+    slurm_num_of_tasks_per_node = int(os.getenv('slurm_num_of_tasks_per_node'))
+    slurm_num_of_nodes = int(os.getenv('slurm_num_of_nodes'))
+    slurm_num_of_hours = int(os.getenv('slurm_num_of_hours'))
+    slurm_partition_for_pp = os.getenv('slurm_partition_for_pp')
+    slurm_partition_for_tr = os.getenv('slurm_partition_for_tr')
+    slurm_num_of_gpus_per_node = int(os.getenv('slurm_num_of_gpus_per_node'))
+    
+
+    min_num_of_required_training_images = int(os.getenv('min_num_of_required_training_images'))
+
     if not os.path.exists(nnunet_dir):
         _error(f'nnunet_dir not found:{nnunet_dir}')
 
@@ -26,7 +41,6 @@ def get_config():
     preprocessed_dir= _join_dir(data_dir, 'preprocessed')
     results_dir = _join_dir(data_dir, 'results')
 
-
     ret = {
         'home_dir': home_dir,
         'venv_dir': venv_dir,
@@ -35,10 +49,21 @@ def get_config():
         'raw_dir': raw_dir,
         'preprocessed_dir': preprocessed_dir,
         'results_dir': results_dir,
+        'nnunet_trainer': nnunet_trainer,
+        'nnunet_planner': nnunet_planner,
         'script_output_files_dir': script_output_files_dir,
-        'log_dir': log_dir
+        'log_dir': log_dir,
+        'slurm_user': slurm_user,
+        'slurm_email': slurm_email,
+        'slurm_num_of_tasks_per_node':slurm_num_of_tasks_per_node,
+        'slurm_num_of_nodes':slurm_num_of_nodes,
+        'slurm_num_of_hours':slurm_num_of_hours,
+        'slurm_partition_for_pp':slurm_partition_for_pp,
+        'slurm_partition_for_tr':slurm_partition_for_tr,
+        'slurm_num_of_gpus_per_node':slurm_num_of_gpus_per_node,
+        'min_num_of_required_training_images': min_num_of_required_training_images
     }
 
-    #print('get_config().return=', ret)
-
     return ret
+
+config = get_config()

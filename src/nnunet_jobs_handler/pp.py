@@ -4,9 +4,22 @@ from pathlib import Path
 
 from logger import log, log_exception as LE, log_and_raise_exception as LER
 
-from config import get_config
-conf = get_config()
-nnunet_preprocessed_dir =  conf['preprocessed_dir']
+from config import config
+
+nnunet_preprocessed_dir =  config['preprocessed_dir']
+
+nnunet_planner = config['nnunet_planner']
+
+slurm_user = config['slurm_user']
+slurm_email = config['slurm_email']
+
+slurm_num_of_tasks_per_node = config['slurm_num_of_tasks_per_node']
+slurm_num_of_nodes = config['slurm_num_of_nodes']
+slurm_num_of_hours = config['slurm_num_of_hours']
+slurm_partition_for_pp = config['slurm_partition_for_pp']
+slurm_num_of_gpus_per_node = config['slurm_num_of_gpus_per_node']
+
+ 
 log(f'preprocessed_dir={nnunet_preprocessed_dir}')
 
 import raw
@@ -154,7 +167,7 @@ def submit_slurm_job(id):
 
     log(f'checking job {job_name} is already in the queue or running')
     from simple_slurm_server import slurm_commands
-    jobs = slurm_commands.get_jobs_of_user('jinkokim')
+    jobs = slurm_commands.get_jobs_of_user(slurm_user)
     
     jobs_of_name = [job for job in jobs if job['name'] == job_name]
 
@@ -164,26 +177,25 @@ def submit_slurm_job(id):
         log(json.dumps(job, indent=4))
         return 
     
-    conf = get_config()
-    venv_dir = conf['venv_dir']
-    nnunet_dir = conf['nnunet_dir']
-    raw_dir = conf['raw_dir']
-    preprocessed_dir = conf['preprocessed_dir']
-    results_dir = conf['results_dir']
+    venv_dir = config['venv_dir']
+    nnunet_dir = config['nnunet_dir']
+    raw_dir = config['raw_dir']
+    preprocessed_dir = config['preprocessed_dir']
+    results_dir = config['results_dir']
 
     job_name = f'pp_{job_num}'
-    partition = 'gpu'
-    num_of_nodes = 1
-    ntasks_per_node = 28
-    num_of_gpus_per_node = 1
-    num_of_hours = 1
-    email = 'jinkoo.kim@stonybrook.edu'
+    partition = slurm_partition_for_pp
+    num_of_nodes = slurm_num_of_nodes
+    ntasks_per_node = slurm_num_of_tasks_per_node
+    num_of_gpus_per_node = slurm_num_of_gpus_per_node
+    num_of_hours = slurm_num_of_hours
+    email = slurm_email
     dataset_num = job_num
-    planner='ExperimentPlanner'
+    planner= nnunet_planner
 
     cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} --verbose --verify_dataset_integrity '
     
-    script_output_files_dir = conf['script_output_files_dir']
+    script_output_files_dir = config['script_output_files_dir']
     case_scripts_dir = os.path.join(script_output_files_dir, job_num)
     if not os.path.exists(case_scripts_dir):
         os.makedirs(case_scripts_dir)
@@ -210,9 +222,9 @@ def submit_slurm_job(id):
 source {venv_dir}/bin/activate
 cd {nnunet_dir}
 
-export nnUNet_raw= "{raw_dir}"
-export nnUNet_preprocessed= "{preprocessed_dir}"
-export nnUNet_results= "{results_dir}"
+export nnUNet_raw="{raw_dir}"
+export nnUNet_preprocessed="{preprocessed_dir}"
+export nnUNet_results="{results_dir}"
 
 {cmd_line}
 '''
@@ -234,7 +246,7 @@ export nnUNet_results= "{results_dir}"
     
     log(f'pp jost submitted: {job_num}')
 
-    jobs = slurm_commands.get_jobs_of_user('jinkokim')
+    jobs = slurm_commands.get_jobs_of_user(slurm_user)
 
     log(f'slurm jobs')
     log(json.dumps(jobs, indent=4))
@@ -242,7 +254,10 @@ export nnUNet_results= "{results_dir}"
 
 def check_and_submit_pp_jobs():
     log('******** dataset ready for pp *********************')
-    id_list = raw.get_dataset_id_list_ready_for_pp(min_num_of_training_images=10)
+    min_num_of_required_training_images = config['min_num_of_required_training_images']
+    log(f'min_num_of_required_training_images={min_num_of_required_training_images}')
+
+    id_list = raw.get_dataset_id_list_ready_for_pp(min_num_of_required_training_images)
 
     # get pp status list
     id_list_to_pp = []

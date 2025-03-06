@@ -1,5 +1,5 @@
 
-import os
+import os, json
 
 from logger import log
 
@@ -7,12 +7,21 @@ from logger import log
 from utils import path_found
 
 import pp
-import json
-from nnunet import nnunet
-nnunet1 = nnunet()
-nnunet_results_dir =  nnunet1.results_dir
 
-trainer = 'nnUNetTrainer'
+from config import config
+nnunet_results_dir =  config['results_dir']
+slurm_user = config['slurm_user']
+slurm_email = config['slurm_email']
+
+slurm_num_of_tasks_per_node = config['slurm_num_of_tasks_per_node']
+slurm_num_of_nodes = config['slurm_num_of_nodes']
+slurm_num_of_hours = config['slurm_num_of_hours']
+slurm_partition_for_tr = config['slurm_partition_for_tr']
+slurm_num_of_gpus_per_node = config['slurm_num_of_gpus_per_node']
+
+nnunet_trainer = config['nnunet_trainer']
+
+trainer = nnunet_trainer
 plans = 'nnUNetPlans'
 folds = [0,1,2,3,4]
 
@@ -185,7 +194,7 @@ def submit_slurm_job(id, fold, configuration, cont):
 
     log(f'checking if job {job_name} is already in the queue or running')
     from simple_slurm_server import slurm_commands
-    jobs = slurm_commands.get_jobs_of_user('jinkokim')
+    jobs = slurm_commands.get_jobs_of_user(slurm_user)
     
     jobs_of_name = [job for job in jobs if job['name'] == job_name]
 
@@ -203,13 +212,12 @@ def submit_slurm_job(id, fold, configuration, cont):
     preprocessed_dir = conf['preprocessed_dir']
     results_dir = conf['results_dir']
 
-    
-    partition = 'gpu'
-    num_of_nodes = 1
-    ntasks_per_node = 28
-    num_of_gpus_per_node = 4
-    num_of_hours = 8
-    email = 'jinkoo.kim@stonybrook.edu'
+    partition = slurm_partition_for_tr
+    num_of_nodes = slurm_num_of_nodes
+    ntasks_per_node = slurm_num_of_tasks_per_node
+    num_of_gpus_per_node = slurm_num_of_gpus_per_node
+    num_of_hours = slurm_num_of_hours
+    email = slurm_email
 
     cmd_line = f'nnUNetv2_train {dataset_num} {configuration} {fold} '
     if cont:
@@ -244,9 +252,9 @@ def submit_slurm_job(id, fold, configuration, cont):
 source {venv_dir}/bin/activate
 cd {nnunet_dir}
 
-export nnUNet_raw= "{raw_dir}"
-export nnUNet_preprocessed= "{preprocessed_dir}"
-export nnUNet_results= "{results_dir}"
+export nnUNet_raw="{raw_dir}"
+export nnUNet_preprocessed="{preprocessed_dir}"
+export nnUNet_results="{results_dir}"
 
 {cmd_line}
 '''
@@ -268,7 +276,7 @@ export nnUNet_results= "{results_dir}"
     
     log(f'pp jost submitted: {dataset_num}')
 
-    jobs = slurm_commands.get_jobs_of_user('jinkokim')
+    jobs = slurm_commands.get_jobs_of_user(slurm_user)
 
     log(f'slurm jobs')
     log(json.dumps(jobs, indent=4))
