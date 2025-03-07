@@ -160,6 +160,7 @@ def status(id):
             "validation_summary_file_exists_for_all_folds": {'exists':False, 'reason':''}
         }
     else:
+        import utils
         return {
             "case_dir_exists": case_dir_exists(id),
             "conf_dir_exists": conf_dir_exists(id),
@@ -169,7 +170,8 @@ def status(id):
             "all_fold_dirs_exists": all_fold_dirs_exists(id),
             "checkpoint_best_exists_for_all_folds": checkpoint_best_exists_for_all_folds(id),
             "checkpoint_final_exists_for_all_folds": checkpoint_final_exists_for_all_folds(id),
-            "validation_summary_file_exists_for_all_folds": validation_summary_file_exists_for_all_folds(id)
+            "validation_summary_file_exists_for_all_folds": validation_summary_file_exists_for_all_folds(id),
+            "files": utils.list_files_with_mtime(case_dir(id))
         }
 
 def complated(id):
@@ -187,6 +189,7 @@ def missing_folds_from_status(s):
     return list(set(folds))
 
 def submit_slurm_job(id, fold, configuration, cont):
+    log(f'submit_slurm_job(id={id}, fold={fold}, configuration={configuration}, cont={cont}):')
     
     dataset_num = id[7:10]
 
@@ -195,7 +198,10 @@ def submit_slurm_job(id, fold, configuration, cont):
     log(f'checking if job {job_name} is already in the queue or running')
     from simple_slurm_server import slurm_commands
     jobs = slurm_commands.get_jobs_of_user(slurm_user)
-    
+    log('=== current jobs in the queue ===')
+    for i,job in enumerate(jobs):
+        log(f"Job[{i}]:{job['jobid']}:{job['name']}:{job['st']}")
+        
     jobs_of_name = [job for job in jobs if job['name'] == job_name]
 
     if len(jobs_of_name) > 0:

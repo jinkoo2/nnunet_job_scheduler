@@ -89,7 +89,7 @@ def all_plan_conf_dirs_exists(id):
 
 def all_processed_images_exist_in_conf_folders(id):
     # training image file ids from raw
-    raw_train_image_ids = raw.get_training_image_id_list(id)
+    raw_train_image_ids = raw.images_tr_file_id_list(id)
     if len(raw_train_image_ids) == 0:
         return {
             'exists':False,
@@ -151,12 +151,14 @@ def status(id):
             "all_processed_images_exist_in_conf_folders": {'exists':False, 'reason':''}
         }
     else:
+        import utils
         return {
             "case_dir_exists": case_dir_exists(id),
             "nnUNetPlans_json_exists": plan_json_exists(id),
             "dataset_json_exists": dataset_json_exists(id),
             "all_plan_conf_dirs_exists": all_plan_conf_dirs_exists(id),
-            "all_processed_images_exist_in_conf_folders": all_processed_images_exist_in_conf_folders(id)
+            "all_processed_images_exist_in_conf_folders": all_processed_images_exist_in_conf_folders(id),
+            "files": utils.list_files_with_mtime(case_dir(id))
         }
 
 def submit_slurm_job(id):
@@ -193,14 +195,16 @@ def submit_slurm_job(id):
     dataset_num = job_num
     planner= nnunet_planner
 
-    cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} --verbose --verify_dataset_integrity '
+    configuration = '2d' if is_2d(id) else '3d_lowres'
+    
+    cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -c {configuration} --verbose --verify_dataset_integrity '
     
     script_output_files_dir = config['script_output_files_dir']
     case_scripts_dir = os.path.join(script_output_files_dir, job_num)
     if not os.path.exists(case_scripts_dir):
         os.makedirs(case_scripts_dir)
 
-    script_file = os.path.join(case_scripts_dir, 'pp.slurm')
+    script_file = os.path.join(case_scripts_dir, f'pp_{job_num}.slurm')
 
     log_file = script_file+'.log'
     
@@ -254,10 +258,7 @@ export nnUNet_results="{results_dir}"
 
 def check_and_submit_pp_jobs():
     log('******** dataset ready for pp *********************')
-    min_num_of_required_training_images = config['min_num_of_required_training_images']
-    log(f'min_num_of_required_training_images={min_num_of_required_training_images}')
-
-    id_list = raw.get_dataset_id_list_ready_for_pp(min_num_of_required_training_images)
+    id_list = raw.dataset_id_list_ready_for_pp()
 
     # get pp status list
     id_list_to_pp = []

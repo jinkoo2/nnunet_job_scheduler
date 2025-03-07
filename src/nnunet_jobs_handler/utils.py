@@ -69,3 +69,48 @@ def path_found(dir_or_file):
             'reason': f'Not found - {dir_or_file}'
             }
 
+
+
+import os
+from datetime import datetime
+
+def list_files_with_mtime(directory, extension=None):
+    """
+    List all files in a directory and its subdirectories, returning a sorted list of dictionaries.
+    
+    Args:
+        directory (str): The path to the directory to scan.
+        extension (str, optional): Filter files by extension (e.g., '.txt').
+    
+    Returns:
+        list: A list of dictionaries, sorted by last modified time (newest to oldest).
+    """
+    file_list = []
+    
+    for root, _, files in os.walk(directory):
+        for filename in files:
+            if extension and not filename.endswith(extension):
+                continue  # Skip files that don’t match the extension
+            
+            file_path = os.path.join(root, filename)
+            try:
+                mtime_timestamp = os.path.getmtime(file_path)
+                mtime = datetime.fromtimestamp(mtime_timestamp)
+                file_info = {
+                    'path': file_path.replace(directory,''),
+                    'mtime': mtime
+                }
+                file_list.append(file_info)
+            except (OSError, PermissionError) as e:
+                print(f"Could not access {file_path}: {e}")
+    
+    file_list.sort(key=lambda x: x['mtime'], reverse=True)
+    return file_list
+
+# Example usage
+if __name__ == "__main__":
+    from config import config
+    directory_path = os.path.join(config['raw_dir'], 'Dataset847_FourCirclesOnJawCalKv2')
+    files = list_files_with_mtime(directory_path)  # Only .py files
+    for file in files:  # Combining with your previous question—first 6 files
+        print(f"Path: {file['path']}, Last Modified: {file['mtime']}")

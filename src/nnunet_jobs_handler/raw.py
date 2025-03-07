@@ -16,23 +16,25 @@ def id_list():
     pattern = r"^Dataset\d{3}_.+$"  # Regex for Datasetxxx_yyyyyy format
     return sorted([entry.name for entry in Path(nnunet_raw_dir).iterdir() if entry.is_dir() and re.match(pattern, entry.name)])
 
-def read_dataset_json(dirname):
-    """Read dataset.json file asynchronously."""
-    json_file = os.path.join(nnunet_raw_dir, dirname, 'dataset.json')
+def dataset_json_file(id):
+    return os.path.join(nnunet_raw_dir, id, 'dataset.json')
+def dataset_json_exists(id):
+    return path_found(dataset_json_file(id))
+def dataset_json(id):
+    json_file = os.path.join(nnunet_raw_dir, id, 'dataset.json')
     try:
         with open(json_file, 'r') as f:
             data = f.read()
             data_dict = json.loads(data)
-            data_dict['id'] = dirname
+            data_dict['id'] = id
             return data_dict
     except Exception as e:
-        LE(f'Failed reading file {json_file}. Exception: {e}')
+        LE(e)
         return None
     
-def get_dataset_json_list():
-    """Retrieve dataset list asynchronously."""
-    dirnames = id_list()
-    dataset_list = [read_dataset_json(dirname) for dirname in dirnames]
+def dataset_json_list():
+
+    dataset_list = [dataset_json(id) for id in id_list()]
     
     # Remove None values (failed reads)
     dataset_list = [ds for ds in dataset_list if ds]
@@ -43,61 +45,151 @@ def get_dataset_json_list():
 
     return dataset_list
 
-def get_dataset_id_list():
-    return id_list()
 
-def get_dataset_num_list():
-    id_list = get_dataset_id_list()
-    num_list = [re.search(r'Dataset(\d+)_', name).group(1) for name in id_list]
+def dataset_num_list():
+    num_list = [re.search(r'Dataset(\d+)_', name).group(1) for name in id_list()]
     return num_list
 
-def get_num_of_training_images(id, file_ending):
-    dir = os.path.join(nnunet_raw_dir, id, 'imagesTr')
-    if not os.path.exists(dir):
-        return -1
-    
-    return len([f for f in os.listdir(dir) if f.endswith(file_ending)])
-
-def get_training_image_id_list(id):
+def _file_id_list(dir, n_tail_to_cut_off):
     
     # file_ending
-    dataset_json = read_dataset_json(id)
+    dataset = dataset_json(id)
     #log(json.dumps(dataset_json, indent=4))
 
-    file_ending = dataset_json['file_ending']
+    file_ending = dataset['file_ending']
 
-    # get unique image ids
-    dir = os.path.join(nnunet_raw_dir, id, 'imagesTr')
-    
     if not os.path.exists(dir):
         return []
     
     image_files = [f for f in os.listdir(dir) if f.endswith(file_ending)]
 
     # remove file_ending and _0000
-    n_tail = len('_0000')+len(file_ending)
-    image_files = [f[0:-n_tail] for f in image_files]
+    image_files = [f[0:-n_tail_to_cut_off] for f in image_files]
     
     return sorted(list(set(image_files)))
 
-def pp_ready(id, min_num_of_required_training_images):
-    dataset_json = read_dataset_json(id)
+def _image_ext(id):
+
+    if not dataset_json_exists(id)['exists']:
+        return None
+
+    dataset = dataset_json(id)
+    return  dataset['file_ending'].strip()
+
+def images_tr_file_id_list(id):
+    return _file_id_list(images_tr_dir(id), len('_0000')+len(_image_ext(id)))
+
+def labels_tr_file_id_list(id):
+    return _file_id_list(labels_tr_dir(id), len(_image_ext(id)))
+    
+def images_ts_file_id_list(id):
+    return _file_id_list(images_ts_dir(id), len('_0000')+len(_image_ext(id)))
+
+def labels_ts_file_id_list(id):
+    return _file_id_list(labels_ts_dir(id), len(_image_ext(id)))
+
+def pp_ready(id):
+    log(f'pp_ready({id})')
+    
+    min_num_of_required_training_images = config['min_num_of_required_training_images']
+    log(f'min_num_of_required_training_images={min_num_of_required_training_images}')
+
+    # check num of training images
+    log(f'checking if the numTraining is > the minimum number of required images.')
+    dataset_json = dataset_json(id)
     numTraining = dataset_json['numTraining']
     if numTraining < min_num_of_required_training_images:
         return {'ready':False, 'reason':f'Not enought number of images (N={numTraining}, required={min_num_of_required_training_images}).'}
 
-    file_ending = dataset_json['file_ending']
-    num_of_images_found = get_num_of_training_images(id, file_ending)
-    
-    if (numTraining > 10 and num_of_images_found >= numTraining):
+    # check number of training images in the folder
+    num_of_images_found = len(images_tr_file_id_list(id))
+    if (num_of_images_found >= numTraining):
         return {'ready':True,'reason':''}
     else:
-        return {'ready':False, 'reason':f'Something wrong: Number of training images found (N={num_of_images_found}, file_ending={file_ending}) < numTraining in dataset.json file for {id}'}
+        return {'ready':False, 'reason':f'Something wrong: Number of training images found (N={num_of_images_found}, file_ending={dataset_json['file_ending']}) < numTraining in dataset.json file for {id}'}
 
-def get_dataset_id_list_ready_for_pp(min_num_of_required_training_images):
+from utils import path_found
+
+def case_dir(id):
+    return os.path.join(nnunet_raw_dir, id)
+def case_dir_exists(id):
+    return path_found(case_dir(id))
+
+def is_2d(id):
+    if not case_dir_exists(id)['exists']:
+        return False 
+    if not dataset_json_exists(id)['exists']:
+        return False
+    
+    dataset = dataset_json(id)
+    if not 'tensorImageSize' in dataset:
+        return False
+    return dataset['tensorImageSize'].lower().strip() == '2d'
+
+def is_3d(id):
+    if not case_dir_exists(id)['exists']:
+        return False 
+    if not dataset_json_exists(id)['exists']:
+        return False
+    
+    dataset = dataset_json(id)
+    if not 'tensorImageSize' in dataset:
+        return False
+    return dataset['tensorImageSize'].lower().strip() == '3d'
+
+def images_tr_dir(id):
+    return os.path.join(case_dir(id), 'imagesTr')
+def images_tr_dir_exists(id):
+    return path_found(images_tr_dir(id))
+
+def labels_tr_dir(id):
+    return os.path.join(case_dir(id), 'labelsTr')
+def labels_tr_dir_exists(id):
+    return path_found(labels_tr_dir(id))
+
+def images_ts_dir(id):
+    return os.path.join(case_dir(id), 'imagesTs')
+def images_ts_dir_exists(id):
+    return path_found(images_ts_dir(id))
+
+def labels_ts_dir(id):
+    return os.path.join(case_dir(id), 'labelsTs')
+def labels_ts_dir_exists(id):
+    return path_found(labels_ts_dir(id))
+
+def status(id):
+    if not case_dir_exists(id)['exists']:
+        return {
+            "case_dir_exists": case_dir_exists(id),
+            "dataset_json_exists": {'exists':False, 'reason':''},
+            "images_tr_dir_exists": {'exists':False, 'reason':''},
+            "labels_tr_dir_exists": {'exists':False, 'reason':''},
+            "checkpoint_best_exists_for_all_folds": {'exists':False, 'reason':''},
+            "checkpoint_final_exists_for_all_folds": {'exists':False, 'reason':''},
+            "validation_summary_file_exists_for_all_folds": {'exists':False, 'reason':''}
+        }
+    else:
+        import utils
+        return {
+            "case_dir_exists": case_dir_exists(id),
+            "dataset_json_exists": dataset_json_exists(id, 'dataset.json'),
+            "images_tr_dir_exists": images_tr_dir_exists(id),
+            "images_tr_file_id_list": images_tr_file_id_list(id),
+            "labels_tr_dir_exists": labels_tr_dir_exists(id),
+            "labels_tr_file_id_list": labels_tr_file_id_list(id),
+            "images_ts_dir_exists": images_ts_dir_exists(id),
+            "images_ts_file_id_list": images_ts_file_id_list(id),
+            "labels_ts_dir_exists": labels_ts_dir_exists(id),
+            "labels_ts_file_id_list": labels_ts_file_id_list(id),
+            "dataset_json": dataset_json(id),
+            "pp_ready": pp_ready(id),
+            "files": utils.list_files_with_mtime(case_dir(id))
+        }
+    
+def dataset_id_list_ready_for_pp():
     list = []
-    for id in get_dataset_id_list():
-        ret = pp_ready(id, min_num_of_required_training_images)
+    for id in id_list():
+        ret = pp_ready(id)
         if ret['ready']:
             list.append(id)
     
@@ -107,21 +199,21 @@ import json
 if __name__ == '__main__':
    
     log('=== datasets ===')
-    log(json.dumps(get_dataset_id_list(), indent=4))
+    log(json.dumps(id_list(), indent=4))
 
     log('=== dataset num list ===')
-    log(json.dumps(get_dataset_num_list(), indent=4))
+    log(json.dumps(dataset_num_list(), indent=4))
     
     log('=== dataset json list ===')
-    log(json.dumps(get_dataset_json_list(), indent=4))
+    log(json.dumps(dataset_json_list(), indent=4))
 
     log('=== datasets ready for pp ===')
-    datasets_ready_for_pp = get_dataset_id_list_ready_for_pp(min_num_of_required_training_images=10)
+    datasets_ready_for_pp = dataset_id_list_ready_for_pp(min_num_of_required_training_images=10)
     for id in datasets_ready_for_pp:
         log(id)
 
     log(f'=== training_image_id_list for  {datasets_ready_for_pp[0]} ===')
-    image_file_ids = get_training_image_id_list(datasets_ready_for_pp[0])
+    image_file_ids = images_tr_file_id_list(datasets_ready_for_pp[0])
     for file in image_file_ids:
         log(file)
 
