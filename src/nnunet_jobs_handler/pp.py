@@ -68,6 +68,19 @@ def plan_conf_dir_list(id):
         list.append(conf_dir)
     return list
 
+def conf_dir(id):
+    if is_2d(id):
+        return os.path.join(case_dir(id), 'nnUNetPlans_2d')
+    else:
+        return os.path.join(case_dir(id), 'nnUNetPlans_3d_lowres')
+
+def conf_dir_exists(id):
+    
+    if not case_dir_exists(id)['exists']:
+        return {'exists': False, 'reason': f'case_dir not found - {case_dir(id)}'}
+    
+    return path_found(conf_dir(id))
+
 def plan_conf_list(id):
     confs = plan_json(id)['configurations']
     return list(confs.keys())
@@ -76,52 +89,35 @@ def is_2d(id):
     confs = plan_conf_list(id)
     return len(confs) ==1 and confs[0] == '2d'
 
-def all_plan_conf_dirs_exists(id):
-    conf_dirs = plan_conf_dir_list(id)
-    for conf_dir in conf_dirs:
-        found = path_found(conf_dir)
-        if not found['exists']:
-            return found
-    return {
-        'exists':True,
-        'reason': ''
-    }
+def all_processed_images_exist(id):
 
-def all_processed_images_exist_in_conf_folders(id):
+    if not conf_dir_exists(id)['exists']:
+        return conf_dir_exists(id)
+    
     # training image file ids from raw
     raw_train_image_ids = raw.images_tr_file_id_list(id)
     if len(raw_train_image_ids) == 0:
         return {
             'exists':False,
-            'reason':'there is no training image in raw_dir'
+            'reason':f'there is no training image in raw_dir for {id}'
         } 
 
-    # configuration dir list
-    conf_dirs = plan_conf_dir_list(id)
+    # get all files 
+    files = os.listdir(conf_dir(id))
 
-    for conf_dir in conf_dirs:
-        
-        if not os.path.exists(conf_dir):
+    # check there are at least two processed images for each image_id
+    for image_id in raw_train_image_ids:
+        matching_files = [f for f in files if image_id in f]
+        if len(matching_files) < 2:
             return {
-                'exists': False,
-                'reason': f'configuration folder not found - {conf_dir}'
+                'exists':False,
+                'reason':f'Less than 2 files found for image id [{image_id}] in the configuration folder: {conf_dir}]'
             }
-
-        # get all files with file_ending
-        files = os.listdir(conf_dir)
-
-        # check there are at least two taining images 
-        for image_id in raw_train_image_ids:
-            matching_files = [f for f in files if image_id in f]
-            if len(matching_files) < 2:
-                return {
-                    'exists':False,
-                    'reason':f'Less than 2 files found for image id [{image_id} in the configuration folder: {conf_dir}]'
-                }
+    
     return {
-                    'exists':True,
-                    'reason':''
-                }
+                'exists':True,
+                'reason':''
+            }
 
 def dataset_json_file(id):
     return os.path.join(nnunet_preprocessed_dir, id, 'dataset.json')
@@ -135,7 +131,7 @@ def dataset_json(id):
 def complated(id):
     s = status(id)
     for key in s.keys():
-        if not s[key]['exists']:
+        if 'exists' in s[key] and not s[key]['exists']:
             return False
     return True
 
@@ -147,7 +143,7 @@ def status(id):
             "case_dir_exists": case_dir_exists(id),
             "nnUNetPlans_json_exists": {'exists':False, 'reason':''},
             "dataset_json_exists": {'exists':False, 'reason':''},
-            "all_plan_conf_dirs_exists": {'exists':False, 'reason':''},
+            "conf_dir_exists": {'exists':False, 'reason':''},
             "all_processed_images_exist_in_conf_folders": {'exists':False, 'reason':''}
         }
     else:
@@ -156,9 +152,9 @@ def status(id):
             "case_dir_exists": case_dir_exists(id),
             "nnUNetPlans_json_exists": plan_json_exists(id),
             "dataset_json_exists": dataset_json_exists(id),
-            "all_plan_conf_dirs_exists": all_plan_conf_dirs_exists(id),
-            "all_processed_images_exist_in_conf_folders": all_processed_images_exist_in_conf_folders(id),
-            "files": utils.list_files_with_mtime(case_dir(id))
+            "conf_dir_exists": conf_dir_exists(id),
+            "all_processed_images_exist": all_processed_images_exist(id),
+            #"files": utils.list_files(case_dir(id))
         }
 
 def submit_slurm_job(id):
@@ -197,17 +193,29 @@ def submit_slurm_job(id):
 
     configuration = '2d' if is_2d(id) else '3d_lowres'
     
-    cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -c {configuration} --verbose --verify_dataset_integrity '
+    cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -c {configuration} -npfp 1 -np 1 --verbose --verify_dataset_integrity '
     
     script_output_files_dir = config['script_output_files_dir']
     case_scripts_dir = os.path.join(script_output_files_dir, job_num)
     if not os.path.exists(case_scripts_dir):
         os.makedirs(case_scripts_dir)
 
+    ### script file
     script_file = os.path.join(case_scripts_dir, f'pp_{job_num}.slurm')
 
+    ### log file
     log_file = script_file+'.log'
-    
+    if os.path.exists(log_file):
+        log(f'previous log file found. Removing it.... {log_file}')
+        try:
+            os.remove(log_file)
+        except FileNotFoundError:
+            log(f"File {log_file} not found.")
+        except PermissionError:
+            log(f"Permission denied to delete {log_file}.")
+        except OSError as e:
+            log(f"Error deleting {log_file}: {e}")
+
     slurm_head = f'''#!/bin/bash
 #SBATCH --job-name={job_name}
 #SBATCH --output={log_file}
@@ -274,7 +282,9 @@ def check_and_submit_pp_jobs():
     # submit pp jobs
     log('****submititng pp jobs****')
     for id in id_list_to_pp:
+        log(f'submiting slurm job for {id}')
         submit_slurm_job(id)
+        
 
 if __name__ == '__main__':
     check_and_submit_pp_jobs()

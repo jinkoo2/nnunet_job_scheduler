@@ -1,5 +1,6 @@
 
 import os, json
+from pathlib import Path
 
 from logger import log
 
@@ -24,6 +25,12 @@ nnunet_trainer = config['nnunet_trainer']
 trainer = nnunet_trainer
 plans = 'nnUNetPlans'
 folds = [0,1,2,3,4]
+
+
+def id_list():
+    """Get a list of data set."""
+    pattern = r"^Dataset\d{3}_.+$"  # Regex for Datasetxxx_yyyyyy format
+    return [entry.name for entry in Path(nnunet_results_dir).iterdir() if entry.is_dir() and re.match(pattern, entry.name)]
 
 def case_dir(id):
     return os.path.join(nnunet_results_dir, id)
@@ -67,6 +74,117 @@ def fold_dir(id, fold):
 
 def fold_dir_exists(id, fold):
     return path_found(fold_dir(id, fold))
+
+def training_log_files_for_fold(id, fold):
+    import utils
+    files = utils.list_files(fold_dir(id,fold), include_sub_folders=False, extension='.txt')
+    files = [f for f in files if os.path.basename(f['path']).startswith('training_log_')]
+    return files
+
+def training_log_files(id):
+    ret = {}
+    for fold in folds:
+        ret[f'fold_{fold}'] = training_log_files_for_fold(id, fold)
+    return ret
+
+def training_log_for_fold(id, fold):
+
+    if not fold_dir_exists(id, fold)['exists']:
+        return ''
+    
+    files = training_log_files_for_fold(id, fold)
+    if len(files) == 0:
+        return ''
+    
+    filenames = [f['path'] for f in files]
+    dir = fold_dir(id, fold)
+
+    full_path_list = [os.path.join(dir, filename) for filename in filenames]
+
+    log = ''
+    for full_path in full_path_list:
+        with open(full_path, 'r') as f:
+            txt = f.read()
+            log = log + txt + '\n'
+
+    return log
+
+def training_logs(id):
+    logs = {}
+    for fold in folds:
+        logs[f'fold_{fold}'] = training_log_files_for_fold(id, fold)
+    return logs
+
+
+import re
+from ast import literal_eval
+
+def parse_epoch_data_from_training_log(log_text):
+    """
+    Parse a training log and extract a list of dictionaries with epoch data.
+    
+    Args:
+        log_text (str): The full text of the training log.
+    
+    Returns:
+        list: List of dictionaries with keys 'Epoch', 'Current learning rate',
+              'train_loss', 'val_loss', and 'Pseudo dice'.
+    """
+    # Split the log into lines
+    lines = log_text.strip().split('\n')
+    
+    # List to store epoch dictionaries
+    epoch_data = []
+    current_epoch = {}
+    
+    # Regex patterns for extracting values
+    patterns = {
+        'Epoch': r'Epoch (\d+)',
+        'Current learning rate': r'Current learning rate: ([\d.e-]+)',
+        'train_loss': r'train_loss ([\d.-]+)',
+        'val_loss': r'val_loss ([\d.-]+)',
+        'Pseudo dice': r'Pseudo dice (\[[\d., ]+\])'
+    }
+    
+    for line in lines:
+        # Check if line is a separator (blank or just timestamp)
+        if not line.strip() or re.match(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}:\s*$', line):
+            if current_epoch:  # If we have data for an epoch, add it to the list
+                # Only add if all required keys are present
+                if all(key in current_epoch for key in patterns.keys()):
+                    epoch_data.append(current_epoch)
+                current_epoch = {}  # Reset for next epoch
+            continue
+        
+        # Try to match each pattern
+        for key, pattern in patterns.items():
+            match = re.search(pattern, line)
+            if match:
+                value = match.group(1)
+                if key == 'Pseudo dice':
+                    # Convert string representation of list to actual list
+                    current_epoch[key] = literal_eval(value)
+                elif key in ['train_loss', 'val_loss', 'Current learning rate']:
+                    # Convert to float
+                    current_epoch[key] = float(value)
+                else:
+                    # Epoch number as int
+                    current_epoch[key] = int(value)
+    
+    # Add the last epoch if it has all required keys
+    if current_epoch and all(key in current_epoch for key in patterns.keys()):
+        epoch_data.append(current_epoch)
+    
+    return epoch_data
+
+def training_epoch_data_for_fold(id, fold):
+    return parse_epoch_data_from_training_log(training_log_for_fold(id, fold))
+
+def training_epoch_data(id):
+    data = {}
+    for fold in folds:
+        data[f'fold_{fold}'] = training_epoch_data_for_fold(id, fold)
+    return data
 
 def all_fold_dirs_exists(id):
     if conf_dir_exists(id)['exists']:
@@ -171,13 +289,16 @@ def status(id):
             "checkpoint_best_exists_for_all_folds": checkpoint_best_exists_for_all_folds(id),
             "checkpoint_final_exists_for_all_folds": checkpoint_final_exists_for_all_folds(id),
             "validation_summary_file_exists_for_all_folds": validation_summary_file_exists_for_all_folds(id),
-            "files": utils.list_files_with_mtime(case_dir(id))
+            "files": utils.list_files(case_dir(id)),
+            "training_log_files": training_log_files_for_fold(id),
+            "training_logs": training_logs(id),
+            "training_epoch_data": training_epoch_data(id)
         }
 
 def complated(id):
     s = status(id)
     for key in s.keys():
-        if not s[key]['exists']:
+        if 'exists' in s[key] and not s[key]['exists']:
             return False
     return True
 
@@ -236,10 +357,22 @@ def submit_slurm_job(id, fold, configuration, cont):
     if not os.path.exists(case_scripts_dir):
         os.makedirs(case_scripts_dir)
 
+    ### script file
     script_file = os.path.join(case_scripts_dir, job_name+'.slurm')
 
+    ### log file
     log_file = script_file+'.log'
-    
+    if os.path.exists(log_file):
+        log(f'previous log file found. Removing it.... {log_file}')
+        try:
+            os.remove(log_file)
+        except FileNotFoundError:
+            log(f"File {log_file} not found.")
+        except PermissionError:
+            log(f"Permission denied to delete {log_file}.")
+        except OSError as e:
+            log(f"Error deleting {log_file}: {e}")
+
     slurm_head = f'''#!/bin/bash
 #SBATCH --job-name={job_name}
 #SBATCH --output={log_file}
@@ -325,10 +458,24 @@ def check_and_submit_tr_jobs():
                 submit_slurm_job(id, fold, configuration, cont)
                 
 
-
 if __name__ == '__main__':
-    check_and_submit_tr_jobs()
-    log('done')
+    #check_and_submit_tr_jobs()
+    #logs = training_log_files('Dataset105_CBCTBladderRectumBowel')
+    #print(json.dumps(logs, indent=4))
+
+    for id in id_list():
+        for fold in folds:
+            print(f'{id}, fold_{fold}')
+            log_text = training_log_for_fold(id, fold)
+            #print(log_text)
+
+            if log_text != '':
+                epoch_data = parse_epoch_data_from_training_log(log_text)
+                print(epoch_data[-1])
+   
+    print('done')
+
+
 
         
 

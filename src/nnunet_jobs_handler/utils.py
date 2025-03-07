@@ -74,43 +74,103 @@ def path_found(dir_or_file):
 import os
 from datetime import datetime
 
-def list_files_with_mtime(directory, extension=None):
+def list_files(directory, include_sub_folders=True, extension=None, sort_newer_to_older=False):
     """
-    List all files in a directory and its subdirectories, returning a sorted list of dictionaries.
+    List all files in a directory (and optionally its subdirectories), returning a sorted list of dictionaries.
+    Each dictionary contains the relative file path (w.r.t. the input directory), last modified time,
+    and file size in bytes.
     
     Args:
         directory (str): The path to the directory to scan.
+        include_sub_folders (bool, optional): If True, include files from subdirectories; if False, only the top-level directory.
         extension (str, optional): Filter files by extension (e.g., '.txt').
     
     Returns:
         list: A list of dictionaries, sorted by last modified time (newest to oldest).
+              Each dict has 'path' (relative str), 'mtime' (datetime), and 'size' (int) keys.
     """
     file_list = []
     
-    for root, _, files in os.walk(directory):
-        for filename in files:
-            if extension and not filename.endswith(extension):
-                continue  # Skip files that don’t match the extension
+    # Ensure directory is an absolute path for consistency
+    directory = os.path.abspath(directory)
+    
+    if include_sub_folders:
+        # Recursively walk through directory and subdirectories
+        for root, _, files in os.walk(directory):
+            for filename in files:
+                if extension and not filename.endswith(extension):
+                    continue  # Skip files that don’t match the extension
+                
+                # Construct full file path
+                full_path = os.path.join(root, filename)
+                
+                # Get relative path w.r.t. the input directory
+                relative_path = os.path.relpath(full_path, directory)
+                
+                try:
+                    # Get last modified time
+                    mtime_timestamp = os.path.getmtime(full_path)
+                    mtime = datetime.fromtimestamp(mtime_timestamp)
+                    
+                    # Get file size in bytes
+                    size = os.path.getsize(full_path)
+                    
+                    # Create dictionary with file info
+                    file_info = {
+                        'path': relative_path,
+                        'mtime': mtime.strftime('%Y-%m-%d %H:%M:%S %Z'),  # Include timezone name
+                        'mtime_sec_since_1970utc': mtime_timestamp,
+                        'size': size
+                    }
+                    file_list.append(file_info)
+                except (OSError, PermissionError) as e:
+                    print(f"Could not access {full_path}: {e}")
+    else:
+        # Only process the top-level directory
+        for filename in os.listdir(directory):
+            full_path = os.path.join(directory, filename)
             
-            file_path = os.path.join(root, filename)
+            # Skip if it’s not a file or doesn’t match the extension
+            if not os.path.isfile(full_path) or (extension and not filename.endswith(extension)):
+                continue
+            
+            # Get relative path (will just be the filename since it’s top-level)
+            relative_path = os.path.relpath(full_path, directory)
+            
             try:
-                mtime_timestamp = os.path.getmtime(file_path)
+                # Get last modified time
+                mtime_timestamp = os.path.getmtime(full_path)
                 mtime = datetime.fromtimestamp(mtime_timestamp)
+                
+                # Get file size in bytes
+                size = os.path.getsize(full_path)
+                
+                # Create dictionary with file info
                 file_info = {
-                    'path': file_path.replace(directory,''),
-                    'mtime': mtime
+                    'path': relative_path,
+                    'mtime': mtime.strftime('%Y-%m-%d %H:%M:%S %Z'),  # Include timezone name
+                    'mtime_sec_since_1970utc': mtime_timestamp,
+                    'size': size
                 }
                 file_list.append(file_info)
             except (OSError, PermissionError) as e:
-                print(f"Could not access {file_path}: {e}")
+                print(f"Could not access {full_path}: {e}")
     
-    file_list.sort(key=lambda x: x['mtime'], reverse=True)
+    # Sort by mtime
+    if sort_newer_to_older:
+        file_list.sort(key=lambda x: x['mtime_sec_since_1970utc'], reverse=True)
+    else:
+        file_list.sort(key=lambda x: x['mtime_sec_since_1970utc'], reverse=False)
+   
     return file_list
+
 
 # Example usage
 if __name__ == "__main__":
     from config import config
-    directory_path = os.path.join(config['raw_dir'], 'Dataset847_FourCirclesOnJawCalKv2')
-    files = list_files_with_mtime(directory_path)  # Only .py files
+    directory_path = '/gpfs/projects/KimGroup/data/mic-mkfz/results/Dataset105_CBCTBladderRectumBowel/nnUNetTrainer__nnUNetPlans__3d_lowres/fold_0/'
+    files = list_files(directory_path, include_sub_folders=False)  # Only .py files
+    print(f'num of files = {len(files)}')
+    import json
     for file in files:  # Combining with your previous question—first 6 files
-        print(f"Path: {file['path']}, Last Modified: {file['mtime']}")
+        print(json.dumps(file, indent=4))
