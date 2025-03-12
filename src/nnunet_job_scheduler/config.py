@@ -18,6 +18,7 @@ def get_config():
 
     nnunet_trainer = os.getenv('nnunet_trainer')
     nnunet_planner = os.getenv('nnunet_planner')
+    nnunet_plans = os.getenv('nnunet_plans')
 
     slurm_user = os.getenv('slurm_user')
     slurm_email = os.getenv('slurm_email')
@@ -40,6 +41,7 @@ def get_config():
     raw_dir = _join_dir(data_dir, 'raw')
     preprocessed_dir= _join_dir(data_dir, 'preprocessed')
     results_dir = _join_dir(data_dir, 'results')
+    predictions_dir = _join_dir(data_dir, 'predictions')
 
     ret = {
         'home_dir': home_dir,
@@ -49,7 +51,9 @@ def get_config():
         'raw_dir': raw_dir,
         'preprocessed_dir': preprocessed_dir,
         'results_dir': results_dir,
+        'predictions_dir': predictions_dir,
         'nnunet_trainer': nnunet_trainer,
+        'nnunet_plans' : nnunet_plans,
         'nnunet_planner': nnunet_planner,
         'script_output_files_dir': script_output_files_dir,
         'log_dir': log_dir,

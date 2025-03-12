@@ -2,9 +2,9 @@ import os
 
 
 
-def _join_dir(dir1, dir2):
+def _join_dir(dir1, dir2, makedir=True):
     joined = os.path.join(dir1, dir2)
-    if not os.path.exists(joined):
+    if makedir and not os.path.exists(joined):
         os.makedirs(joined)
     return joined
 
@@ -70,6 +70,12 @@ def path_found(dir_or_file):
             }
 
 
+def paths_found(dir_or_file_list):
+    for dir_or_file in dir_or_file_list:
+        found = path_found(dir_or_file)
+        if not found['exists']:
+            return found
+    return {'exists':True}
 
 import os
 from datetime import datetime
@@ -163,6 +169,19 @@ def list_files(directory, include_sub_folders=True, extension=None, sort_newer_t
         file_list.sort(key=lambda x: x['mtime_sec_since_1970utc'], reverse=False)
    
     return file_list
+
+
+def file_id_list(dir, ext, n_tail_to_cut_off):
+    
+    if not os.path.exists(dir):
+        return []
+    
+    image_files = [f for f in os.listdir(dir) if f.endswith(ext)]
+
+    # remove file_ending and _0000
+    image_files = [f[0:-n_tail_to_cut_off] for f in image_files]
+    
+    return sorted(list(set(image_files)))
 
 
 # Example usage

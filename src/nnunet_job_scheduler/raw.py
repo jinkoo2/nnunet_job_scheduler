@@ -51,18 +51,10 @@ def dataset_num_list():
     return num_list
 
 def _file_id_list(dir, ext, n_tail_to_cut_off):
-    
-    if not os.path.exists(dir):
-        return []
-    
-    image_files = [f for f in os.listdir(dir) if f.endswith(ext)]
+    import utils
+    return utils.file_id_list(dir, ext, n_tail_to_cut_off)
 
-    # remove file_ending and _0000
-    image_files = [f[0:-n_tail_to_cut_off] for f in image_files]
-    
-    return sorted(list(set(image_files)))
-
-def _image_ext(id):
+def file_ending(id):
 
     if not dataset_json_exists(id)['exists']:
         return None
@@ -71,16 +63,16 @@ def _image_ext(id):
     return  ds['file_ending'].strip()
 
 def images_tr_file_id_list(id):
-    return _file_id_list(images_tr_dir(id), _image_ext(id), len('_0000')+len(_image_ext(id)))
+    return _file_id_list(images_tr_dir(id), file_ending(id), len('_0000')+len(file_ending(id)))
 
 def labels_tr_file_id_list(id):
-    return _file_id_list(labels_tr_dir(id), _image_ext(id),len(_image_ext(id)))
+    return _file_id_list(labels_tr_dir(id), file_ending(id),len(file_ending(id)))
     
 def images_ts_file_id_list(id):
-    return _file_id_list(images_ts_dir(id), _image_ext(id),len('_0000')+len(_image_ext(id)))
+    return _file_id_list(images_ts_dir(id), file_ending(id),len('_0000')+len(file_ending(id)))
 
 def labels_ts_file_id_list(id):
-    return _file_id_list(labels_ts_dir(id), _image_ext(id),len(_image_ext(id)))
+    return _file_id_list(labels_ts_dir(id), file_ending(id),len(file_ending(id)))
 
 def pp_ready(id):
     log(f'pp_ready({id})')

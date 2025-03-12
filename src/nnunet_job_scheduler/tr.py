@@ -75,6 +75,10 @@ def fold_dir(id, fold):
 def fold_dir_exists(id, fold):
     return path_found(fold_dir(id, fold))
 
+def cache_dir(id, fold):
+    import utils
+    return utils._join_dir(fold_dir(id, fold), '__cache__')
+
 def training_log_files_for_fold(id, fold):
     import utils
     files = utils.list_files(fold_dir(id,fold), include_sub_folders=False, extension='.txt')
@@ -96,25 +100,45 @@ def training_log_for_fold(id, fold):
     if len(files) == 0:
         return ''
     
+    # check if there is a log file already
+    import utils
+    latest_log_file_time = files[-1]['mtime_sec_since_1970utc']
+    log_file = os.path.join(cache_dir(id, fold), f'training_log_{latest_log_file_time}.txt' )
+    if os.path.exists(log_file):
+        log(f'A cached log_file found. Rreturning the file. file={log_file}')
+        with open(log_file, 'r') as f:
+            return f.read()
+        
     filenames = [f['path'] for f in files]
     dir = fold_dir(id, fold)
 
     full_path_list = [os.path.join(dir, filename) for filename in filenames]
 
-    log = ''
+    log_text = ''
     for full_path in full_path_list:
         with open(full_path, 'r') as f:
             txt = f.read()
-            log = log + txt + '\n'
+            log_text = log_text + txt + '\n'
 
-    return log
+    # save as cache
+    log('removing all training_log files in the cache folder')
+    existing_log_filenames = [f for f in os.listdir(cache_dir(id,fold)) if f.startswith('training_log_') and f.endswith('.txt')]
+    for file in existing_log_filenames:
+        full_path = os.path.join(cache_dir(id, fold), file)
+        os.remove(full_path)
+        log(f"Deleted: {full_path}")
+    
+    log(f'saving training_log as cache to {log_file}')
+    with open(log_file, 'w') as f:
+        f.write(log_text)
+
+    return log_text
 
 def training_logs(id):
     logs = {}
     for fold in folds:
         logs[f'fold_{fold}'] = training_log_files_for_fold(id, fold)
     return logs
-
 
 import re
 from ast import literal_eval
@@ -178,7 +202,32 @@ def parse_epoch_data_from_training_log(log_text):
     return epoch_data
 
 def training_epoch_data_for_fold(id, fold):
-    return parse_epoch_data_from_training_log(training_log_for_fold(id, fold))
+
+    # check the cache
+    log_files = training_log_files_for_fold(id, fold)
+    latest_log_file_time = log_files[-1]['mtime_sec_since_1970utc']
+    epoch_data_file = os.path.join(cache_dir(id, fold), f'epoch_data_{latest_log_file_time}.json')
+    if os.path.exists(epoch_data_file):
+        log(f'cached training epoch data file found. returning it. file={epoch_data_file}')
+        with open(epoch_data_file, 'r') as f:
+            return json.load(f)
+
+    epoch_data = parse_epoch_data_from_training_log(training_log_for_fold(id, fold))
+
+    # remove previous cache files
+    log('removing all epoch data files in the cache folder')
+    existing_filenames = [f for f in os.listdir(cache_dir(id,fold)) if f.startswith('epoch_data_') and f.endswith('.json')]
+    for file in existing_filenames:
+        full_path = os.path.join(cache_dir(id, fold), file)
+        os.remove(full_path)
+        log(f"Deleted: {full_path}")
+
+    # save as cache
+    log(f'saving epoch data as cache to {epoch_data_file}')
+    with open(epoch_data_file, 'w') as f:
+        json.dump(epoch_data, f, indent=4)
+
+    return epoch_data
 
 def training_epoch_data(id):
     data = {}
@@ -289,9 +338,9 @@ def status(id):
             "checkpoint_best_exists_for_all_folds": checkpoint_best_exists_for_all_folds(id),
             "checkpoint_final_exists_for_all_folds": checkpoint_final_exists_for_all_folds(id),
             "validation_summary_file_exists_for_all_folds": validation_summary_file_exists_for_all_folds(id),
-            "files": utils.list_files(case_dir(id)),
-            "training_log_files": training_log_files_for_fold(id),
-            "training_logs": training_logs(id),
+            #"files": utils.list_files(case_dir(id)),
+            "training_log_files": training_log_files(id),
+            #"training_logs": training_logs(id),
             "training_epoch_data": training_epoch_data(id)
         }
 
@@ -459,10 +508,17 @@ def check_and_submit_tr_jobs():
                 
 
 if __name__ == '__main__':
+    
+    
     #check_and_submit_tr_jobs()
     #logs = training_log_files('Dataset105_CBCTBladderRectumBowel')
     #print(json.dumps(logs, indent=4))
 
+    epochs = training_epoch_data_for_fold('Dataset105_CBCTBladderRectumBowel', 0)
+    #print(json.dumps(epochs, indent=4))
+
+
+    exit(0) 
     for id in id_list():
         for fold in folds:
             print(f'{id}, fold_{fold}')
