@@ -197,98 +197,37 @@ export nnUNet_results="{results_dir}"
     log(f'slurm jobs')
     log(json.dumps(jobs, indent=4))
   
-def check_and_submit_tr_jobs():
-    log('******** list of pp-complated datasets **************')
-    id_list = pp.get_complated_dataset_id_list()
-
-    # get tr status list
-    tr_cases = []
-    for id in id_list:
-        log(f'=== {id} ===')
-        if complated(id):
-            log(f'\t{id} - Completed')
-        else:
-            log(f'\t{id} - NOT completed')
-            s = status(id)
-            log(json.dumps(s, indent=4))
-            log(f'missing folds={missing_folds_from_status(s)}')
-            
-            tr_cases.append({'id':id,'folds': missing_folds_from_status(s), 'status': s})
-    
-    if len(tr_cases) > 0:
-        # submit tr jobs
-        log('****submititng tr jobs****')
-        for case in tr_cases:
-            id = case['id']
-            
-            ### configuration
-            if pp.is_2d(id):
-                configuration = '2d'
-            else:
-                configuration = '3d_lowres'
-
-            for fold in case['folds']:
-                ### continue if there is checkpoint_best.json
-                cont = checkpoint_best_exists(id, fold)['exists']
-
-                log(f'submitting tr slurm job for {id}, fold:{fold}, cofiguration={configuration}, continue={cont}')
-                submit_slurm_job(id, fold, configuration, cont)
-
-
-def input_image_files_for_image_id(id, image_id, n_channels=None, file_ending=None):
-    # num of input chennels
-    if n_channels is None:
-        ds = raw.dataset_json(id)
-        n_channels = len(ds['channel_names'].keys())
-
-    # file_ending
-    if file_ending is None:
-        file_ending = raw.file_ending(id)
-
-    filenames = [ f'{image_id}_{str(i).zfill(4)}{file_ending}' for i in range(n_channels)]
-
-    return [ os.path.join(pd_dir(id), filename) for filename in filenames]
-
-def input_image_files_exists_for_image_id(id, image_id, n_channels=None, file_ending=None):
-    return utils.paths_found(input_image_files_for_image_id(id, image_id))
-
-def output_label_file_for_image_id(id, image_id, file_ending=None):
-    # file_ending
-    if file_ending is None:
-        file_ending = raw.file_ending(id)
-
-    filename = f'{image_id}{file_ending}'
-
-    return os.path.join(output_dir(id), filename)
-
-def output_label_file_exists_for_image_id(id, image_id, file_ending=None):
-    return utils.path_found(output_label_file_for_image_id(id, image_id, file_ending))
-
-if __name__ == '__main__':
-   for id in id_list():
+def check_and_submit_pr_jobs():
+     log(f'=== check_and_submit_pr_jobs() ===')
+     
+     
+     for id in id_list():
         if not tr.complated(id):
-            print(f'{id} - training NOT completed.')
+            log(f'{id} - training NOT completed.')
             continue 
         
         req_dirnames = req_dirname_list(id)
-        print(f'req_dirnames={req_dirnames}')
+        log(f'req_dirnames={req_dirnames}')
 
         for req_dirname in req_dirnames:
-            print(f'req_dirname={req_dirname}')
+            log(f'req_dirname={req_dirname}')
             image_ids = input_image_id_list_for_req(id, req_dirname)
-            print(f'image_ids={image_ids}')
+            log(f'image_ids={image_ids}')
 
             label_ids = output_label_id_list_for_req(id, req_dirname)
-            print(f'label_ids={label_ids}')
+            log(f'label_ids={label_ids}')
             if set(image_ids) == set(label_ids):
-                print(f'found all predicted outputs in {req_output_dir(id, req_dirname)}')
+                log(f'found all predicted outputs in {req_output_dir(id, req_dirname)}')
                 continue
    
             
-            print(f'submitting prediction job for {req_dirname} in {id}')
+            log(f'submitting prediction job for {req_dirname} in {id}')
             submit_slurm_job(id, req_dirname)
-            
-   print('done')
+
+
+if __name__ == '__main__':
+   check_and_submit_pr_jobs()
+   log('done')
 
 
 
