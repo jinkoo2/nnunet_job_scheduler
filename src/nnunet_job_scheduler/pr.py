@@ -17,7 +17,7 @@ slurm_email = config['slurm_email']
 slurm_num_of_tasks_per_node = config['slurm_num_of_tasks_per_node']
 slurm_num_of_nodes = config['slurm_num_of_nodes']
 slurm_num_of_hours = config['slurm_num_of_hours']
-slurm_partition_for_tr = config['slurm_partition_for_tr']
+slurm_partition = config['slurm_partition']
 slurm_num_of_gpus_per_node = config['slurm_num_of_gpus_per_node']
 
 nnunet_trainer = config['nnunet_trainer']
@@ -118,7 +118,7 @@ def submit_slurm_job(id, req_dirname):
     configuration = '2d' if raw.is_2d(id) else '3d_lowres'
     plans = conf['nnunet_plans']
 
-    partition = slurm_partition_for_tr
+    partition = slurm_partition
     num_of_nodes = slurm_num_of_nodes
     ntasks_per_node = slurm_num_of_tasks_per_node
     num_of_gpus_per_node = slurm_num_of_gpus_per_node

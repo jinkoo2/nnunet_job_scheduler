@@ -9,7 +9,7 @@ log(f'=== [config] ===')
 for key in config:
     log(f'{key}={config[key]}')
 
-import pp, tr
+import pp, tr, pr
 
 while True:
 
@@ -29,6 +29,15 @@ while True:
         tr.check_and_submit_tr_jobs()
     except Exception as e:
         log('Exception in tr.check_and_submit_tr_jobs()!')
+        log_exception(e)
+
+    try:
+        log('=============================================')
+        log('====== pr.check_and_submit_pr_jobs() ========')
+        log('=============================================')    
+        pr.check_and_submit_pr_jobs()
+    except Exception as e:
+        log('Exception in pr.check_and_submit_pr_jobs()!')
         log_exception(e)
 
     sleep_min = 60

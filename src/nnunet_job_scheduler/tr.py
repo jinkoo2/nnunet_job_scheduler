@@ -17,7 +17,7 @@ slurm_email = config['slurm_email']
 slurm_num_of_tasks_per_node = config['slurm_num_of_tasks_per_node']
 slurm_num_of_nodes = config['slurm_num_of_nodes']
 slurm_num_of_hours = config['slurm_num_of_hours']
-slurm_partition_for_tr = config['slurm_partition_for_tr']
+slurm_partition = config['slurm_partition']
 slurm_num_of_gpus_per_node = config['slurm_num_of_gpus_per_node']
 
 nnunet_trainer = config['nnunet_trainer']
@@ -80,6 +80,9 @@ def cache_dir(id, fold):
     return utils._join_dir(fold_dir(id, fold), '__cache__')
 
 def training_log_files_for_fold(id, fold):
+    if not os.path.exists(fold_dir(id, fold)):
+        return []
+
     import utils
     files = utils.list_files(fold_dir(id,fold), include_sub_folders=False, extension='.txt')
     files = [f for f in files if os.path.basename(f['path']).startswith('training_log_')]
@@ -205,6 +208,9 @@ def training_epoch_data_for_fold(id, fold):
 
     # check the cache
     log_files = training_log_files_for_fold(id, fold)
+    if len(log_files) ==0:
+        return []
+
     latest_log_file_time = log_files[-1]['mtime_sec_since_1970utc']
     epoch_data_file = os.path.join(cache_dir(id, fold), f'epoch_data_{latest_log_file_time}.json')
     if os.path.exists(epoch_data_file):
@@ -388,7 +394,7 @@ def submit_slurm_job(id, fold, configuration, cont):
     preprocessed_dir = conf['preprocessed_dir']
     results_dir = conf['results_dir']
 
-    partition = slurm_partition_for_tr
+    partition = slurm_partition
     num_of_nodes = slurm_num_of_nodes
     ntasks_per_node = slurm_num_of_tasks_per_node
     num_of_gpus_per_node = slurm_num_of_gpus_per_node

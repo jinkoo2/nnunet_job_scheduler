@@ -16,7 +16,7 @@ slurm_email = config['slurm_email']
 slurm_num_of_tasks_per_node = config['slurm_num_of_tasks_per_node']
 slurm_num_of_nodes = config['slurm_num_of_nodes']
 slurm_num_of_hours = config['slurm_num_of_hours']
-slurm_partition_for_pp = config['slurm_partition_for_pp']
+slurm_partition = config['slurm_partition']
 slurm_num_of_gpus_per_node = config['slurm_num_of_gpus_per_node']
 
  
@@ -182,7 +182,7 @@ def submit_slurm_job(id):
     results_dir = config['results_dir']
 
     job_name = f'pp_{job_num}'
-    partition = slurm_partition_for_pp
+    partition = slurm_partition
     num_of_nodes = slurm_num_of_nodes
     ntasks_per_node = slurm_num_of_tasks_per_node
     num_of_gpus_per_node = slurm_num_of_gpus_per_node
@@ -256,7 +256,7 @@ export nnUNet_results="{results_dir}"
     from simple_slurm_server import slurm_commands
 
     
-    log(f'pp jost submitted: {job_num}')
+    log(f'pp job submitted: {job_num}')
 
     jobs = slurm_commands.get_jobs_of_user(slurm_user)
 

@@ -25,8 +25,8 @@ def get_config():
     slurm_num_of_tasks_per_node = int(os.getenv('slurm_num_of_tasks_per_node'))
     slurm_num_of_nodes = int(os.getenv('slurm_num_of_nodes'))
     slurm_num_of_hours = int(os.getenv('slurm_num_of_hours'))
-    slurm_partition_for_pp = os.getenv('slurm_partition_for_pp')
-    slurm_partition_for_tr = os.getenv('slurm_partition_for_tr')
+    slurm_partition = os.getenv('slurm_partition')
+
     slurm_num_of_gpus_per_node = int(os.getenv('slurm_num_of_gpus_per_node'))
     
 
@@ -62,8 +62,7 @@ def get_config():
         'slurm_num_of_tasks_per_node':slurm_num_of_tasks_per_node,
         'slurm_num_of_nodes':slurm_num_of_nodes,
         'slurm_num_of_hours':slurm_num_of_hours,
-        'slurm_partition_for_pp':slurm_partition_for_pp,
-        'slurm_partition_for_tr':slurm_partition_for_tr,
+        'slurm_partition':slurm_partition,
         'slurm_num_of_gpus_per_node':slurm_num_of_gpus_per_node,
         'min_num_of_required_training_images': min_num_of_required_training_images
     }
