@@ -5,7 +5,7 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from utils import _error, _info, _join_dir
+from nnunet_job_scheduler.utils import _error, _info, _join_dir
 
 def get_config():
    
@@ -26,6 +26,8 @@ def get_config():
     slurm_num_of_nodes = int(os.getenv('slurm_num_of_nodes'))
     slurm_num_of_hours = int(os.getenv('slurm_num_of_hours'))
     slurm_partition = os.getenv('slurm_partition')
+
+    slurm_jobs_dir = _join_dir(data_dir, 'slurm_jobs_dir')
 
     slurm_num_of_gpus_per_node = int(os.getenv('slurm_num_of_gpus_per_node'))
     
@@ -62,7 +64,8 @@ def get_config():
         'slurm_num_of_tasks_per_node':slurm_num_of_tasks_per_node,
         'slurm_num_of_nodes':slurm_num_of_nodes,
         'slurm_num_of_hours':slurm_num_of_hours,
-        'slurm_partition':slurm_partition,
+        'slurm_partition': slurm_partition,
+        'slurm_jobs_dir':slurm_jobs_dir,
         'slurm_num_of_gpus_per_node':slurm_num_of_gpus_per_node,
         'min_num_of_required_training_images': min_num_of_required_training_images
     }

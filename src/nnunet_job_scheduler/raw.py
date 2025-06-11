@@ -4,9 +4,9 @@ import os
 import re
 from pathlib import Path
 
-from logger import log, log_exception as LE
-
-from config import config
+from nnunet_job_scheduler.logger import log, log_exception as LE
+from nnunet_job_scheduler import utils 
+from nnunet_job_scheduler.config import config
 
 nnunet_data_dir = config['data_dir'] 
 nnunet_raw_dir =  config['raw_dir']
@@ -51,7 +51,6 @@ def dataset_num_list():
     return num_list
 
 def _file_id_list(dir, ext, n_tail_to_cut_off):
-    import utils
     return utils.file_id_list(dir, ext, n_tail_to_cut_off)
 
 def file_ending(id):
@@ -95,7 +94,7 @@ def pp_ready(id):
         file_ending = ds['file_ending']
         return {'ready':False, 'reason':f'Something wrong: Number of training images found (N={num_of_images_found}, file_ending={file_ending}) < numTraining in dataset.json file for {id}'}
 
-from utils import path_found
+from nnunet_job_scheduler.utils import path_found
 
 def case_dir(id):
     return os.path.join(nnunet_raw_dir, id)

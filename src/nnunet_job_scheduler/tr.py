@@ -2,14 +2,13 @@
 import os, json
 from pathlib import Path
 
-from logger import log
+from nnunet_job_scheduler.logger import log
+from nnunet_job_scheduler.utils import path_found
+from nnunet_job_scheduler import raw, pp, utils
 
+from nnunet_job_scheduler.config import get_config
 
-from utils import path_found
-
-import pp
-
-from config import config
+from nnunet_job_scheduler.config import config
 nnunet_results_dir =  config['results_dir']
 slurm_user = config['slurm_user']
 slurm_email = config['slurm_email']
@@ -60,8 +59,7 @@ def conf_3d_highres_dir_exists(id):
 
 def conf_dir(id):
     # check if 2d
-    import pp
-    if pp.is_2d(id):
+    if raw.is_2d(id):
         return conf_2d_dir(id)
     else:
         return conf_3d_lowres_dir(id)
@@ -76,14 +74,12 @@ def fold_dir_exists(id, fold):
     return path_found(fold_dir(id, fold))
 
 def cache_dir(id, fold):
-    import utils
     return utils._join_dir(fold_dir(id, fold), '__cache__')
 
 def training_log_files_for_fold(id, fold):
     if not os.path.exists(fold_dir(id, fold)):
         return []
 
-    import utils
     files = utils.list_files(fold_dir(id,fold), include_sub_folders=False, extension='.txt')
     files = [f for f in files if os.path.basename(f['path']).startswith('training_log_')]
     return files
@@ -104,7 +100,6 @@ def training_log_for_fold(id, fold):
         return ''
     
     # check if there is a log file already
-    import utils
     latest_log_file_time = files[-1]['mtime_sec_since_1970utc']
     log_file = os.path.join(cache_dir(id, fold), f'training_log_{latest_log_file_time}.txt' )
     if os.path.exists(log_file):
@@ -295,7 +290,6 @@ def checkpoint_final_exists_for_all_folds(id):
     else:
         return {'exists': False, 'reason':f'checkpoint_best.json files not found for folds ({missing_folds})', 'folds': missing_folds}
 
-
 def validation_dir(id, fold):
     return os.path.join(conf_dir(id), f'fold_{fold}', 'validation')
 
@@ -333,7 +327,6 @@ def status(id):
             "validation_summary_file_exists_for_all_folds": {'exists':False, 'reason':''}
         }
     else:
-        import utils
         return {
             "case_dir_exists": case_dir_exists(id),
             "conf_dir_exists": conf_dir_exists(id),
@@ -358,10 +351,18 @@ def complated(id):
     return True
 
 def missing_folds_from_status(s):
-    folds = []
-    for key in s.keys():
-        if 'folds' in s[key]:
-            folds.extend(s[key]['folds'])
+
+    if not s['case_dir_exists']['exists']:
+        folds = [0,1,2,3,4]
+    else:        
+        folds = []
+        for key in s.keys():
+            if 'folds' in s[key]:
+                folds.extend(s[key]['folds'])
+    print('================')
+    log(f'missing_folds_from_status(s) returns folds = {folds}')
+    print('================')
+
     return list(set(folds))
 
 def submit_slurm_job(id, fold, configuration, cont):
@@ -386,7 +387,7 @@ def submit_slurm_job(id, fold, configuration, cont):
         log(json.dumps(job, indent=4))
         return 
     
-    from config import get_config
+    
     conf = get_config()
     venv_dir = conf['venv_dir']
     nnunet_dir = conf['nnunet_dir']
@@ -477,11 +478,12 @@ export nnUNet_results="{results_dir}"
   
 def check_and_submit_tr_jobs():
     log('******** list of pp-complated datasets **************')
-    id_list = pp.get_complated_dataset_id_list()
+    pp_complated_id_list = pp.get_complated_dataset_id_list()
+    log(f'pp-complated id_list={pp_complated_id_list}')
 
     # get tr status list
     tr_cases = []
-    for id in id_list:
+    for id in pp_complated_id_list:
         log(f'=== {id} ===')
         if complated(id):
             log(f'\t{id} - Completed')
@@ -493,14 +495,18 @@ def check_and_submit_tr_jobs():
             
             tr_cases.append({'id':id,'folds': missing_folds_from_status(s), 'status': s})
     
+
     if len(tr_cases) > 0:
         # submit tr jobs
-        log('****submititng tr jobs****')
+        log(f'****submititng tr jobs [N={len(tr_cases)}]****')
+        
+        log(f'Tr jobs to submit:{tr_cases}')
+
         for case in tr_cases:
             id = case['id']
             
             ### configuration
-            if pp.is_2d(id):
+            if raw.is_2d(id):
                 configuration = '2d'
             else:
                 configuration = '3d_lowres'

@@ -2,14 +2,15 @@
 import os, json
 from pathlib import Path
 
-from logger import log
+from nnunet_job_scheduler.logger import log
 
 
-from utils import path_found
+from nnunet_job_scheduler.utils import path_found
 
-import raw, pp, tr, utils
+from nnunet_job_scheduler import raw, pp, tr, utils
 
-from config import config
+from nnunet_job_scheduler.config import config
+
 nnunet_predictions_dir =  config['predictions_dir']
 
 slurm_user = config['slurm_user']
@@ -108,8 +109,7 @@ def submit_slurm_job(id, req_dirname):
         log(json.dumps(job, indent=4))
         return 
     
-    from config import get_config
-    conf = get_config()
+    conf = config
     venv_dir = conf['venv_dir']
     nnunet_dir = conf['nnunet_dir']
     raw_dir = conf['raw_dir']

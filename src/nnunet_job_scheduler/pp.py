@@ -2,9 +2,9 @@
 import json, os, re
 from pathlib import Path
 
-from logger import log, log_exception as LE, log_and_raise_exception as LER
-
-from config import config
+from nnunet_job_scheduler.logger import log, log_exception as LE, log_and_raise_exception as LER
+from nnunet_job_scheduler import utils
+from nnunet_job_scheduler.config import config
 
 nnunet_preprocessed_dir =  config['preprocessed_dir']
 
@@ -22,9 +22,9 @@ slurm_num_of_gpus_per_node = config['slurm_num_of_gpus_per_node']
  
 log(f'preprocessed_dir={nnunet_preprocessed_dir}')
 
-import raw
+from nnunet_job_scheduler import raw
 
-from utils import path_found
+from nnunet_job_scheduler.utils import path_found
 
 def id_list():
     """Get a list of data set."""
@@ -86,8 +86,9 @@ def plan_conf_list(id):
     return list(confs.keys())
 
 def is_2d(id):
-    confs = plan_conf_list(id)
-    return len(confs) ==1 and confs[0] == '2d'
+    return raw.is_2d(id)
+    # confs = plan_conf_list(id)
+    #return len(confs) ==1 and confs[0] == '2d'
 
 def all_processed_images_exist(id):
 
@@ -147,7 +148,6 @@ def status(id):
             "all_processed_images_exist_in_conf_folders": {'exists':False, 'reason':''}
         }
     else:
-        import utils
         return {
             "case_dir_exists": case_dir_exists(id),
             "nnUNetPlans_json_exists": plan_json_exists(id),
@@ -284,11 +284,13 @@ def check_and_submit_pp_jobs():
     for id in id_list_to_pp:
         log(f'submiting slurm job for {id}')
         submit_slurm_job(id)
-        
+
+def main():
+    check_and_submit_pp_jobs()
+    log('pp_main done')
 
 if __name__ == '__main__':
-    check_and_submit_pp_jobs()
-    log('done')
+    main()
 
 
 

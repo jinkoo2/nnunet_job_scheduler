@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import datetime
 
-from config import config
+from nnunet_job_scheduler.config import config
 
 # log dir
 log_dir = config["log_dir"] 
