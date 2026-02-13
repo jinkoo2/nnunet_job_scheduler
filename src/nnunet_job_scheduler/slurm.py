@@ -1,5 +1,5 @@
 from nnunet_job_scheduler.logger import log, log_exception
-from simple_slurm_server import slurm_commands
+from nnunet_job_scheduler import slurm_commands
 import json, os
 import platform
 from nnunet_job_scheduler.config import config 

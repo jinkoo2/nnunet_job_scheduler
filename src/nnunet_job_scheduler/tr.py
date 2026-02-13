@@ -373,7 +373,7 @@ def submit_slurm_job(id, fold, configuration, cont):
     job_name = f'tr_{dataset_num}_{fold}'
 
     log(f'checking if job {job_name} is already in the queue or running')
-    from simple_slurm_server import slurm_commands
+    from nnunet_job_scheduler import slurm_commands
     jobs = slurm_commands.get_jobs_of_user(slurm_user)
     log('=== current jobs in the queue ===')
     for i,job in enumerate(jobs):
@@ -466,7 +466,7 @@ export nnUNet_results="{results_dir}"
     import subprocess
     subprocess.run(cmd, shell=True)
 
-    from simple_slurm_server import slurm_commands
+    from nnunet_job_scheduler import slurm_commands
 
     
     log(f'pp jost submitted: {dataset_num}')

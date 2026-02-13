@@ -164,7 +164,7 @@ def submit_slurm_job(id):
     job_name = f'pp_{job_num}'
 
     log(f'checking job {job_name} is already in the queue or running')
-    from simple_slurm_server import slurm_commands
+    from nnunet_job_scheduler import slurm_commands
     jobs = slurm_commands.get_jobs_of_user(slurm_user)
     
     jobs_of_name = [job for job in jobs if job['name'] == job_name]
@@ -253,7 +253,7 @@ export nnUNet_results="{results_dir}"
     import subprocess
     subprocess.run(cmd, shell=True)
 
-    from simple_slurm_server import slurm_commands
+    from nnunet_job_scheduler import slurm_commands
 
     
     log(f'pp job submitted: {job_num}')

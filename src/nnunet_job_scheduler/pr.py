@@ -102,7 +102,7 @@ def submit_slurm_job(id, req_dirname):
     print(f'job_name={job_name}')
 
     log(f'checking if job {job_name} is already in the queue or running')
-    from simple_slurm_server import slurm_commands
+    from nnunet_job_scheduler import slurm_commands
     job = slurm_commands.get_job_from_job_name(job_name, slurm_user)
     if job is not None:
         log(f'job is already in the queue ')
@@ -187,7 +187,7 @@ export nnUNet_results="{results_dir}"
     import subprocess
     subprocess.run(cmd, shell=True)
 
-    from simple_slurm_server import slurm_commands
+    from nnunet_job_scheduler import slurm_commands
 
     
     log(f'pr jost submitted: {dataset_num}')
@@ -200,7 +200,6 @@ export nnUNet_results="{results_dir}"
 def check_and_submit_pr_jobs():
      log(f'=== check_and_submit_pr_jobs() ===')
      
-     
      for id in id_list():
         if not tr.complated(id):
             log(f'{id} - training NOT completed.')
@@ -211,17 +210,18 @@ def check_and_submit_pr_jobs():
 
         for req_dirname in req_dirnames:
             log(f'req_dirname={req_dirname}')
-            image_ids = input_image_id_list_for_req(id, req_dirname)
-            log(f'image_ids={image_ids}')
+            input_image_ids = input_image_id_list_for_req(id, req_dirname)
+            log(f'input_image_ids={input_image_ids}')
 
-            label_ids = output_label_id_list_for_req(id, req_dirname)
-            log(f'label_ids={label_ids}')
-            if set(image_ids) == set(label_ids):
+            output_label_ids = output_label_id_list_for_req(id, req_dirname)
+            log(f'output_label_ids={output_label_ids}')
+            if set(input_image_ids).issubset(set(output_label_ids)): # check if all input images have corresponding output labels
                 log(f'found all predicted outputs in {req_output_dir(id, req_dirname)}')
                 continue
    
-            
+            log(f'not all inputs are in the outputs...so...')
             log(f'submitting prediction job for {req_dirname} in {id}')
+            
             submit_slurm_job(id, req_dirname)
 
 
