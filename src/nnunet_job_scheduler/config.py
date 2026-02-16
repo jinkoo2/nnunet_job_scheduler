@@ -8,8 +8,7 @@ load_dotenv()
 from nnunet_job_scheduler.utils import _error, _info, _join_dir
 
 def get_config():
-   
-    home_dir = os.getenv('home_dir')
+    # home_dir = os.getenv('home_dir')  # legacy, unused
     venv_dir = os.getenv('venv_dir')
     script_output_files_dir = os.getenv('script_output_files_dir')
     nnunet_dir = os.getenv('nnunet_dir')
@@ -46,7 +45,7 @@ def get_config():
     predictions_dir = _join_dir(data_dir, 'predictions')
 
     ret = {
-        'home_dir': home_dir,
+        # 'home_dir': home_dir,  # legacy, unused
         'venv_dir': venv_dir,
         'nnunet_dir': nnunet_dir,
         'data_dir': data_dir,

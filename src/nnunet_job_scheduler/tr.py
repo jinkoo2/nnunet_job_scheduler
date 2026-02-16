@@ -57,6 +57,23 @@ def conf_3d_highres_dir(id):
 def conf_3d_highres_dir_exists(id):
     return path_found(conf_3d_highres_dir(id))
 
+def conf_3d_fullres_dir(id):
+    configuration = '3d_fullres'
+    conf_dirname = f'{trainer}__{plans}__{configuration}'
+    return os.path.join(nnunet_results_dir, id, conf_dirname)
+
+def conf_dir_for_config(id, configuration):
+    """Return results dir for a given configuration (2d, 3d_lowres, 3d_highres, 3d_fullres)."""
+    if configuration == '2d':
+        return conf_2d_dir(id)
+    if configuration == '3d_lowres':
+        return conf_3d_lowres_dir(id)
+    if configuration == '3d_highres':
+        return conf_3d_highres_dir(id)
+    if configuration == '3d_fullres':
+        return conf_3d_fullres_dir(id)
+    raise ValueError(f'Unknown configuration: {configuration}')
+
 def conf_dir(id):
     # check if 2d
     if raw.is_2d(id):
@@ -262,8 +279,19 @@ def exists_in_fold_dir(id, fold, filename):
     else:
         return {'exists': False, 'reason':f'conf_dir not fond:{conf_dir(id)}'}
 
+def fold_dir_for_config(id, fold, configuration):
+    return os.path.join(conf_dir_for_config(id, configuration), f'fold_{fold}')
+
+def exists_in_fold_dir_for_config(id, fold, configuration, filename):
+    fold_path = fold_dir_for_config(id, fold, configuration)
+    return path_found(os.path.join(fold_path, filename))
+
 def checkpoint_best_exists(id, fold):
     return exists_in_fold_dir(id, fold, 'checkpoint_best.pth')
+
+def checkpoint_best_exists_for_config(id, fold, configuration):
+    """Checkpoint for a specific configuration (use when submitting multi-config jobs)."""
+    return exists_in_fold_dir_for_config(id, fold, configuration, 'checkpoint_best.pth')
 
 def checkpoint_best_exists_for_all_folds(id):
     missing_folds = []
@@ -370,7 +398,7 @@ def submit_slurm_job(id, fold, configuration, cont):
     
     dataset_num = id[7:10]
 
-    job_name = f'tr_{dataset_num}_{fold}'
+    job_name = f'tr_{dataset_num}_{configuration}_{fold}'
 
     log(f'checking if job {job_name} is already in the queue or running')
     from nnunet_job_scheduler import slurm_commands
@@ -507,16 +535,17 @@ def check_and_submit_tr_jobs():
             
             ### configuration
             if raw.is_2d(id):
-                configuration = '2d'
+                configurations = ['2d']
             else:
-                configuration = '3d_lowres'
+                configurations = ['3d_lowres', '3d_highres', '3d_fullres']
 
-            for fold in case['folds']:
-                ### continue if there is checkpoint_best.json
-                cont = checkpoint_best_exists(id, fold)['exists']
+            for configuration in configurations:
+                for fold in case['folds']:
+                    ### continue if there is checkpoint_best.pth for this (id, fold, configuration)
+                    cont = checkpoint_best_exists_for_config(id, fold, configuration)['exists']
 
-                log(f'submitting tr slurm job for {id}, fold:{fold}, cofiguration={configuration}, continue={cont}')
-                submit_slurm_job(id, fold, configuration, cont)
+                    log(f'submitting tr slurm job for {id}, fold:{fold}, configuration={configuration}, continue={cont}')
+                    submit_slurm_job(id, fold, configuration, cont)
                 
 
 if __name__ == '__main__':

@@ -191,9 +191,11 @@ def submit_slurm_job(id):
     dataset_num = job_num
     planner= nnunet_planner
 
-    configuration = '2d' if is_2d(id) else '3d_lowres'
-    
-    cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -c {configuration} -npfp 1 -np 1 --verbose --verify_dataset_integrity '
+    #configuration = '2d' if is_2d(id) else '3d_lowres'
+    #cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -c {configuration} -npfp 1 -np 1 --verbose --verify_dataset_integrity '
+
+    # removed -c {configuration} to process all configurations.
+    cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -npfp 1 -np 1 --verbose --verify_dataset_integrity '
     
     script_output_files_dir = config['script_output_files_dir']
     case_scripts_dir = os.path.join(script_output_files_dir, job_num)
