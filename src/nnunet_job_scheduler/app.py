@@ -34,7 +34,7 @@ def main():
             log('=============================================')
             log('====== pr.check_and_submit_pr_jobs() ========')
             log('=============================================')
-            pr.check_and_submit_pr_jobs()
+            #pr.check_and_submit_pr_jobs()
         except Exception as e:
             log('Exception in pr.check_and_submit_pr_jobs()!')
             log_exception(e)

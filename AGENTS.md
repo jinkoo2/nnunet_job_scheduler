@@ -71,8 +71,7 @@ Derived paths in config: `raw_dir`, `preprocessed_dir`, `results_dir`, `predicti
 ## Conventions and patterns
 
 - **Dataset/case ID**: String like `Dataset015_SomeName`. Dataset number is `id[7:10]` (e.g. `015`). Used in job names: `pp_015`, `tr_015_0`, `pr015057`.
-- **Status helpers**: Many modules have `status(id)` returning a dict of `{..., 'exists': bool, 'reason': ...}`. Completion is checked with `complated(id)` (see below).
-- **Intentional typo**: The codebase uses `complated` (not “completed”) in function names, e.g. `complated(id)`, `get_complated_dataset_id_list()`. Preserve this naming when adding or refactoring to avoid breaking call sites.
+- **Status helpers**: Many modules have `status(id)` returning a dict of `{..., 'exists': bool, 'reason': ...}`. Completion is checked with `completed(id)` and `get_completed_dataset_id_list()`.
 - **Slurm script generation**: Each stage builds a bash script with `#SBATCH` headers and `source venv; cd nnunet_dir; export nnUNet_*; <nnUNet command>`, then runs `module load slurm && sbatch <script_file>`.
 - **Logging**: Use `from nnunet_job_scheduler.logger import log, log_exception` and call `log(msg)` or `log_exception(e)`; do not add new log files or formatters unless required.
 
@@ -92,7 +91,7 @@ Derived paths in config: `raw_dir`, `preprocessed_dir`, `results_dir`, `predicti
   - Log message says "pp jost submitted" (typo); "pr jost" appears in pr.py as well – minor.
   - `get_config()` is called in `submit_slurm_job` while most code uses the global `config`; consistent use of `config` is preferable.
 
-When editing these areas, fix the bug you are targeting and avoid unnecessary renames (e.g. `complated` → `completed`) unless the user explicitly asks for a project-wide rename.
+When editing these areas, fix the bug you are targeting; the codebase uses `completed` (not “complated”) for completion checks.
 
 ---
 
@@ -109,5 +108,5 @@ When editing these areas, fix the bug you are targeting and avoid unnecessary re
 
 - This is a **nnUNet v2** + **Slurm** scheduler daemon: **pp** → **tr** → **pr**, with config from `.env`.
 - Key modules: `app` (loop), `config`, `raw`, `pp`, `tr`, `pr`, `slurm`, `utils`, `logger`.
-- Keep the existing naming (`complated`, job names, path conventions) and fix only the bugs listed above when relevant.
+- Keep the existing naming (job names, path conventions) and use `completed` for completion checks; fix only the bugs listed above when relevant.
 - Add new features (e.g. new pipeline stages or checks) by following the same patterns: `status(id)`-like dicts, `path_found()`, and the existing Slurm script generation style.

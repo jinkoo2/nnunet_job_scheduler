@@ -4,12 +4,61 @@ import os
 import re
 from pathlib import Path
 
+from datetime import datetime
+
 from nnunet_job_scheduler.logger import log, log_exception as LE
 from nnunet_job_scheduler import utils 
 from nnunet_job_scheduler.config import config
+from nnunet_job_scheduler.utils import path_found
 
 nnunet_data_dir = config['data_dir'] 
 nnunet_raw_dir =  config['raw_dir']
+
+
+def mark_dataset_bad(id, reason):
+    """
+    Mark a dataset as bad: write error.log in the dataset folder with the reason,
+    then rename the folder to Bad_<id> so it is excluded from id_list() in future runs.
+    """
+    folder_path = os.path.join(nnunet_raw_dir, id)
+    if not os.path.isdir(folder_path):
+        log(f'mark_dataset_bad: folder does not exist, skipping rename: {folder_path}')
+        return
+    error_log_path = os.path.join(folder_path, 'error.log')
+    try:
+        with open(error_log_path, 'w') as f:
+            f.write(f"{datetime.utcnow().isoformat()}Z\n")
+            f.write(f"Dataset marked bad: {id}\n")
+            f.write(f"Reason: {reason}\n")
+    except Exception as e:
+        LE(e)
+        log(f'mark_dataset_bad: could not write error.log for {id}')
+    bad_folder_path = os.path.join(nnunet_raw_dir, f'Bad_{id}')
+    try:
+        os.rename(folder_path, bad_folder_path)
+        log(f'mark_dataset_bad: renamed {id} -> Bad_{id}')
+    except Exception as e:
+        LE(e)
+        log(f'mark_dataset_bad: could not rename folder for {id}')
+
+
+def ensure_dataset_valid(id):
+    """
+    Return True if the dataset has a valid dataset.json with file_ending.
+    If not (missing, unreadable, or missing file_ending), mark the dataset bad, rename to Bad_<id>, return False.
+    """
+    if not path_found(dataset_json_file(id))['exists']:
+        mark_dataset_bad(id, 'dataset.json not found')
+        return False
+    ds = dataset_json(id)
+    if ds is None:
+        mark_dataset_bad(id, 'dataset.json could not be read')
+        return False
+    if 'file_ending' not in ds or ds.get('file_ending') is None or not str(ds['file_ending']).strip():
+        mark_dataset_bad(id, "dataset.json missing or has empty 'file_ending'")
+        return False
+    return True
+
 
 def id_list():
     """Get a list of data set."""
@@ -94,7 +143,6 @@ def pp_ready(id):
         file_ending = ds['file_ending']
         return {'ready':False, 'reason':f'Something wrong: Number of training images found (N={num_of_images_found}, file_ending={file_ending}) < numTraining in dataset.json file for {id}'}
 
-from nnunet_job_scheduler.utils import path_found
 
 def case_dir(id):
     return os.path.join(nnunet_raw_dir, id)
@@ -158,7 +206,7 @@ def status(id):
         import utils
         return {
             "case_dir_exists": case_dir_exists(id),
-            "dataset_json_exists": dataset_json_exists(id, 'dataset.json'),
+            "dataset_json_exists": dataset_json_exists(id),
             "images_tr_dir_exists": images_tr_dir_exists(id),
             "images_tr_file_id_list": images_tr_file_id_list(id),
             "labels_tr_dir_exists": labels_tr_dir_exists(id),
@@ -175,6 +223,8 @@ def status(id):
 def dataset_id_list_ready_for_pp():
     list = []
     for id in id_list():
+        if not ensure_dataset_valid(id):
+            continue
         ret = pp_ready(id)
         if ret['ready']:
             list.append(id)

@@ -82,7 +82,7 @@ def status(id):
             "case_dir_exists": case_dir_exists(id),
         }
 
-def complated(id):
+def completed(id):
     s = status(id)
     for key in s.keys():
         if 'exists' in s[key] and not s[key]['exists']:
@@ -201,7 +201,7 @@ def check_and_submit_pr_jobs():
      log(f'=== check_and_submit_pr_jobs() ===')
      
      for id in id_list():
-        if not tr.complated(id):
+        if not tr.completed(id):
             log(f'{id} - training NOT completed.')
             continue 
         

@@ -371,7 +371,7 @@ def status(id):
             "training_epoch_data": training_epoch_data(id)
         }
 
-def complated(id):
+def completed(id):
     s = status(id)
     for key in s.keys():
         if 'exists' in s[key] and not s[key]['exists']:
@@ -505,15 +505,15 @@ export nnUNet_results="{results_dir}"
     log(json.dumps(jobs, indent=4))
   
 def check_and_submit_tr_jobs():
-    log('******** list of pp-complated datasets **************')
-    pp_complated_id_list = pp.get_complated_dataset_id_list()
-    log(f'pp-complated id_list={pp_complated_id_list}')
+    log('******** list of pp-completed datasets **************')
+    pp_completed_id_list = pp.get_completed_dataset_id_list()
+    log(f'pp-completed id_list={pp_completed_id_list}')
 
     # get tr status list
     tr_cases = []
-    for id in pp_complated_id_list:
+    for id in pp_completed_id_list:
         log(f'=== {id} ===')
-        if complated(id):
+        if completed(id):
             log(f'\t{id} - Completed')
         else:
             log(f'\t{id} - NOT completed')
@@ -537,7 +537,7 @@ def check_and_submit_tr_jobs():
             if raw.is_2d(id):
                 configurations = ['2d']
             else:
-                configurations = ['3d_lowres', '3d_highres', '3d_fullres']
+                configurations = ['3d_lowres']
 
             for configuration in configurations:
                 for fold in case['folds']:

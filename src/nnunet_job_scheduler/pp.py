@@ -39,8 +39,14 @@ def get_dataset_num_list():
     num_list = [re.search(r'Dataset(\d+)_', name).group(1) for name in id_list]
     return num_list
 
-def get_complated_dataset_id_list():
-    return [id for id in id_list() if complated(id)]
+def get_completed_dataset_id_list():
+    result = []
+    for id in id_list():
+        if not raw.ensure_dataset_valid(id):
+            continue
+        if completed(id):
+            result.append(id)
+    return result
 
 def case_dir(id):
     return os.path.join(nnunet_preprocessed_dir, id)
@@ -129,7 +135,7 @@ def dataset_json(id):
         data = json.load(f)
     return data
 
-def complated(id):
+def completed(id):
     s = status(id)
     for key in s.keys():
         if 'exists' in s[key] and not s[key]['exists']:
@@ -191,10 +197,10 @@ def submit_slurm_job(id):
     dataset_num = job_num
     planner= nnunet_planner
 
-    #configuration = '2d' if is_2d(id) else '3d_lowres'
+    configuration = '2d' if is_2d(id) else '3d_lowres'
     #cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -c {configuration} -npfp 1 -np 1 --verbose --verify_dataset_integrity '
 
-    # removed -c {configuration} to process all configurations.
+    ## removed -c {configuration} to process all configurations.
     cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -npfp 1 -np 1 --verbose --verify_dataset_integrity '
     
     script_output_files_dir = config['script_output_files_dir']
@@ -232,6 +238,11 @@ def submit_slurm_job(id):
 '''
 
     script = f'''{slurm_head}
+
+# Redirect stdout/stderr to log file so we always have a log (even if Slurm does not create it)
+PP_LOG="{log_file}"
+exec 1>>"$PP_LOG" 2>&1
+echo "=== Job started $(date) ==="
 
 source {venv_dir}/bin/activate
 cd {nnunet_dir}
@@ -274,7 +285,7 @@ def check_and_submit_pp_jobs():
     id_list_to_pp = []
     for id in id_list:
         log(f'=== {id} ===')
-        if complated(id):
+        if completed(id):
             log(f'\t{id} - Completed')
         else:
             log(f'\t{id} - NOT completed')
