@@ -463,9 +463,11 @@ def submit_slurm_job(id, fold, configuration, cont):
 #SBATCH --ntasks-per-node={ntasks_per_node}
 #SBATCH --nodes={num_of_nodes}
 #SBATCH --time={num_of_hours}:00:00
+#SBATCH --cpus-per-task=16
 #SBATCH -p {partition}
 #SBATCH --gres=gpu:{num_of_gpus_per_node}            # number of GPUs per node (gres=gpu:N)
 #SBATCH --gpus={num_of_gpus_per_node} # number of GPUs per node (gres=gpu:N), this is a backup of --gres
+#SBATCH --mem=64G
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user={email}
 '''
@@ -478,6 +480,10 @@ cd {nnunet_dir}
 export nnUNet_raw="{raw_dir}"
 export nnUNet_preprocessed="{preprocessed_dir}"
 export nnUNet_results="{results_dir}"
+
+export nnUNet_n_proc_preprocessing=2
+export nnUNet_n_proc_DA=4
+
 
 {cmd_line}
 '''

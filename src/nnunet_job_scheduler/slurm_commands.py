@@ -60,6 +60,15 @@ def cancel_job(job_id: str):
     command = f"scancel {job_id}"
     run_command(command)
 
+def cancel_jobs_of_user(user_id: str):
+    command = f"scancel -u {user_id}"
+    run_command(command)
+
+def cancel_pending_jobs_of_user(user_id: str):
+    command = f"scancel -u {user_id} -t PENDING"
+    run_command(command)
+
+
 def suspend_job(job_id: str):
     command = f"scontrol suspend {job_id}"
     run_command(command)

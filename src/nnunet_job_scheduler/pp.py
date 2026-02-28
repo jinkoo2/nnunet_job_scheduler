@@ -201,7 +201,8 @@ def submit_slurm_job(id):
     #cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -c {configuration} -npfp 1 -np 1 --verbose --verify_dataset_integrity '
 
     ## removed -c {configuration} to process all configurations.
-    cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -npfp 1 -np 1 --verbose --verify_dataset_integrity '
+    #cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} -npfp 4 -np 1 --verbose --verify_dataset_integrity '
+    cmd_line = f'nnUNetv2_plan_and_preprocess -d {dataset_num} -pl {planner} --verbose --verify_dataset_integrity '
     
     script_output_files_dir = config['script_output_files_dir']
     case_scripts_dir = os.path.join(script_output_files_dir, job_num)
@@ -227,12 +228,12 @@ def submit_slurm_job(id):
     slurm_head = f'''#!/bin/bash
 #SBATCH --job-name={job_name}
 #SBATCH --output={log_file}
-#SBATCH --ntasks-per-node={ntasks_per_node}
-#SBATCH --nodes={num_of_nodes}
-#SBATCH --time={num_of_hours}:00:00
-#SBATCH -p {partition}
-#SBATCH --gres=gpu:{num_of_gpus_per_node}            # number of GPUs per node (gres=gpu:N)
-#SBATCH --gpus={num_of_gpus_per_node} # number of GPUs per node (gres=gpu:N), this is a backup of --gres
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --nodes=1
+#SBATCH --time=4:00:00
+#SBATCH --mem=128G
+#SBATCH -p short-40core
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user={email}
 '''
@@ -250,6 +251,8 @@ cd {nnunet_dir}
 export nnUNet_raw="{raw_dir}"
 export nnUNet_preprocessed="{preprocessed_dir}"
 export nnUNet_results="{results_dir}"
+
+nnUNet_n_proc_preprocessing=4
 
 {cmd_line}
 '''
