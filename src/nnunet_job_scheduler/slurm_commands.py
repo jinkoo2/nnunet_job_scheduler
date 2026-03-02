@@ -12,23 +12,40 @@ def run_command(command):
     except subprocess.CalledProcessError as e:
         raise
 
+# Format: jobid(18) partition(9) name(200) user(8) state(2) time(12) nodes(6) nodelist(rest)
+# %.200j gives full job name (default squeue truncates to 8 chars)
+SQUEUE_FORMAT = '%.18i %.9P %.200j %.8u %.2t %.12M %.6D %R'
+
 def get_jobs():
-    command = "squeue"
+    command = f"squeue -o '{SQUEUE_FORMAT}'"
     result = run_command(command)
     return parse_squeue_results(result)
 
 def parse_squeue_results(result):
     lines = result.strip().split('\n')
-    headers = lines[0].lower().split()[:6]
+    if not lines:
+        return []
+    headers = ['jobid', 'partition', 'name', 'user', 'st', 'time', 'nodes', 'nodelist']
     jobs = []
     for line in lines[1:]:
-        columns = line.split()[:6]
-        job_dict = dict(zip(headers, columns))
+        parts = line.split()
+        if len(parts) < 7:
+            continue
+        job_dict = {
+            headers[0]: parts[0],
+            headers[1]: parts[1],
+            headers[2]: parts[2],
+            headers[3]: parts[3],
+            headers[4]: parts[4],
+            headers[5]: parts[5],
+            headers[6]: parts[6],
+            headers[7]: ' '.join(parts[7:]) if len(parts) > 7 else '',
+        }
         jobs.append(job_dict)
     return jobs
 
 def get_jobs_of_user(user_id):
-    command = "squeue -u " + user_id
+    command = f"squeue -u {user_id} -o '{SQUEUE_FORMAT}'"
     result = run_command(command)
     return parse_squeue_results(result)
 

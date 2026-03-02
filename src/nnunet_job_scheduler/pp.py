@@ -18,6 +18,13 @@ slurm_num_of_nodes = config['slurm_num_of_nodes']
 slurm_num_of_hours = config['slurm_num_of_hours']
 slurm_partition = config['slurm_partition']
 slurm_num_of_gpus_per_node = config['slurm_num_of_gpus_per_node']
+slurm_max_jobs_per_user = config['slurm_max_jobs_per_user']
+
+case_status_list_dir = config.get('case_status_list_dir')
+pp_case_status_dir = None
+if case_status_list_dir:
+    pp_case_status_dir = os.path.join(case_status_list_dir, 'pp')
+    os.makedirs(pp_case_status_dir, exist_ok=True)
 
  
 log(f'preprocessed_dir={nnunet_preprocessed_dir}')
@@ -146,15 +153,23 @@ def completed(id):
 def status(id):
 
     if not case_dir_exists(id)['exists']:
-        return {
+        s = {
             "case_dir_exists": case_dir_exists(id),
             "nnUNetPlans_json_exists": {'exists':False, 'reason':''},
             "dataset_json_exists": {'exists':False, 'reason':''},
             "conf_dir_exists": {'exists':False, 'reason':''},
             "all_processed_images_exist_in_conf_folders": {'exists':False, 'reason':''}
         }
+        if pp_case_status_dir:
+            try:
+                out_path = os.path.join(pp_case_status_dir, f"{id}.json")
+                with open(out_path, "w") as f:
+                    json.dump(s, f, indent=4)
+            except Exception as e:
+                LE(e)
+        return s
     else:
-        return {
+        s = {
             "case_dir_exists": case_dir_exists(id),
             "nnUNetPlans_json_exists": plan_json_exists(id),
             "dataset_json_exists": dataset_json_exists(id),
@@ -162,6 +177,14 @@ def status(id):
             "all_processed_images_exist": all_processed_images_exist(id),
             #"files": utils.list_files(case_dir(id))
         }
+        if pp_case_status_dir:
+            try:
+                out_path = os.path.join(pp_case_status_dir, f"{id}.json")
+                with open(out_path, "w") as f:
+                    json.dump(s, f, indent=4)
+            except Exception as e:
+                LE(e)
+        return s
 
 def submit_slurm_job(id):
     
@@ -173,6 +196,10 @@ def submit_slurm_job(id):
     from nnunet_job_scheduler import slurm_commands
     jobs = slurm_commands.get_jobs_of_user(slurm_user)
     
+    if len(jobs) >= slurm_max_jobs_per_user:
+        log(f'not submitting: already at or above max jobs per user ({len(jobs)} >= {slurm_max_jobs_per_user})')
+        return
+
     jobs_of_name = [job for job in jobs if job['name'] == job_name]
 
     if len(jobs_of_name) > 0:
@@ -288,11 +315,12 @@ def check_and_submit_pp_jobs():
     id_list_to_pp = []
     for id in id_list:
         log(f'=== {id} ===')
+        s = status(id)
         if completed(id):
             log(f'\t{id} - Completed')
         else:
             log(f'\t{id} - NOT completed')
-            log(json.dumps(status(id), indent=4))
+            log(json.dumps(s, indent=4))
             id_list_to_pp.append(id)
             
     # submit pp jobs

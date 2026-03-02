@@ -20,6 +20,7 @@ slurm_num_of_nodes = config['slurm_num_of_nodes']
 slurm_num_of_hours = config['slurm_num_of_hours']
 slurm_partition = config['slurm_partition']
 slurm_num_of_gpus_per_node = config['slurm_num_of_gpus_per_node']
+slurm_max_jobs_per_user = config['slurm_max_jobs_per_user']
 
 nnunet_trainer = config['nnunet_trainer']
 
@@ -103,6 +104,10 @@ def submit_slurm_job(id, req_dirname):
 
     log(f'checking if job {job_name} is already in the queue or running')
     from nnunet_job_scheduler import slurm_commands
+    jobs = slurm_commands.get_jobs_of_user(slurm_user)
+    if len(jobs) >= slurm_max_jobs_per_user:
+        log(f'not submitting: already at or above max jobs per user ({len(jobs)} >= {slurm_max_jobs_per_user})')
+        return
     job = slurm_commands.get_job_from_job_name(job_name, slurm_user)
     if job is not None:
         log(f'job is already in the queue ')

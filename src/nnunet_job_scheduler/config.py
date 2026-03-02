@@ -14,6 +14,7 @@ def get_config():
     nnunet_dir = os.getenv('nnunet_dir')
     data_dir = os.getenv('data_dir')
     log_dir = os.getenv('log_dir')
+    case_status_list_dir = os.getenv('case_status_list_dir')
 
     nnunet_trainer = os.getenv('nnunet_trainer')
     nnunet_planner = os.getenv('nnunet_planner')
@@ -25,8 +26,7 @@ def get_config():
     slurm_num_of_nodes = int(os.getenv('slurm_num_of_nodes'))
     slurm_num_of_hours = int(os.getenv('slurm_num_of_hours'))
     slurm_partition = os.getenv('slurm_partition')
-
-    slurm_jobs_dir = _join_dir(data_dir, 'slurm_jobs_dir')
+    slurm_max_jobs_per_user = int(os.getenv('slurm_max_jobs_per_user', '10'))
 
     slurm_num_of_gpus_per_node = int(os.getenv('slurm_num_of_gpus_per_node'))
     
@@ -38,6 +38,16 @@ def get_config():
 
     if not os.path.exists(data_dir):
         _error(f'data_dir not found:{data_dir}')
+
+    # Ensure key directories exist
+    if script_output_files_dir:
+        os.makedirs(script_output_files_dir, exist_ok=True)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+    if case_status_list_dir:
+        os.makedirs(case_status_list_dir, exist_ok=True)
+
+    slurm_jobs_dir = _join_dir(data_dir, 'slurm_jobs_dir')
 
     raw_dir = _join_dir(data_dir, 'raw')
     preprocessed_dir= _join_dir(data_dir, 'preprocessed')
@@ -64,6 +74,8 @@ def get_config():
         'slurm_num_of_nodes':slurm_num_of_nodes,
         'slurm_num_of_hours':slurm_num_of_hours,
         'slurm_partition': slurm_partition,
+        'slurm_max_jobs_per_user': slurm_max_jobs_per_user,
+        'case_status_list_dir': case_status_list_dir,
         'slurm_jobs_dir':slurm_jobs_dir,
         'slurm_num_of_gpus_per_node':slurm_num_of_gpus_per_node,
         'min_num_of_required_training_images': min_num_of_required_training_images

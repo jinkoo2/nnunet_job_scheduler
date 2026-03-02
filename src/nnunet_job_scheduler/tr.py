@@ -18,6 +18,13 @@ slurm_num_of_nodes = config['slurm_num_of_nodes']
 slurm_num_of_hours = config['slurm_num_of_hours']
 slurm_partition = config['slurm_partition']
 slurm_num_of_gpus_per_node = config['slurm_num_of_gpus_per_node']
+slurm_max_jobs_per_user = config['slurm_max_jobs_per_user']
+
+case_status_list_dir = config.get('case_status_list_dir')
+tr_case_status_dir = None
+if case_status_list_dir:
+    tr_case_status_dir = os.path.join(case_status_list_dir, 'tr')
+    os.makedirs(tr_case_status_dir, exist_ok=True)
 
 nnunet_trainer = config['nnunet_trainer']
 
@@ -302,7 +309,7 @@ def checkpoint_best_exists_for_all_folds(id):
     if len(missing_folds) == 0:
         return {'exists': True}
     else:
-        return {'exists': False, 'reason':f'checkpoint_best.json files not found for folds ({missing_folds})', 'folds': missing_folds}
+        return {'exists': False, 'reason':f'checkpoint_best.pth files not found for folds ({missing_folds})', 'folds': missing_folds}
 
 def checkpoint_final_exists(id, fold):
     return exists_in_fold_dir(id, fold, 'checkpoint_final.pth')
@@ -316,7 +323,7 @@ def checkpoint_final_exists_for_all_folds(id):
     if len(missing_folds) == 0:
         return {'exists': True}
     else:
-        return {'exists': False, 'reason':f'checkpoint_best.json files not found for folds ({missing_folds})', 'folds': missing_folds}
+        return {'exists': False, 'reason':f'checkpoint_final.pth files not found for folds ({missing_folds})', 'folds': missing_folds}
 
 def validation_dir(id, fold):
     return os.path.join(conf_dir(id), f'fold_{fold}', 'validation')
@@ -339,11 +346,11 @@ def validation_summary_file_exists_for_all_folds(id):
     if len(missing_folds) == 0:
         return {'exists': True}
     else:
-        return {'exists': False, 'reason':f'checkpoint_best.json files not found for folds ({missing_folds})', 'folds': missing_folds}
+        return {'exists': False, 'reason':f'validation summary.json files not found for folds ({missing_folds})', 'folds': missing_folds}
     
 def status(id):
     if not case_dir_exists(id)['exists']:
-        return {
+        s = {
             "case_dir_exists": case_dir_exists(id),
             "conf_dir_exists": {'exists':False, 'reason':''},
             "plans_json_exists": {'exists':False, 'reason':''},
@@ -355,7 +362,7 @@ def status(id):
             "validation_summary_file_exists_for_all_folds": {'exists':False, 'reason':''}
         }
     else:
-        return {
+        s = {
             "case_dir_exists": case_dir_exists(id),
             "conf_dir_exists": conf_dir_exists(id),
             "plans_json_exists": exists_in_conf_dir(id, 'plans.json'),
@@ -370,6 +377,16 @@ def status(id):
             #"training_logs": training_logs(id),
             "training_epoch_data": training_epoch_data(id)
         }
+
+    if tr_case_status_dir:
+        try:
+            out_path = os.path.join(tr_case_status_dir, f"{id}.json")
+            with open(out_path, "w") as f:
+                json.dump(s, f, indent=4)
+        except Exception as e:
+            log(f"Failed to save training status for {id}: {e}")
+
+    return s
 
 def completed(id):
     s = status(id)
@@ -406,6 +423,10 @@ def submit_slurm_job(id, fold, configuration, cont):
     log('=== current jobs in the queue ===')
     for i,job in enumerate(jobs):
         log(f"Job[{i}]:{job['jobid']}:{job['name']}:{job['st']}")
+
+    if len(jobs) >= slurm_max_jobs_per_user:
+        log(f'not submitting: already at or above max jobs per user ({len(jobs)} >= {slurm_max_jobs_per_user})')
+        return
         
     jobs_of_name = [job for job in jobs if job['name'] == job_name]
 
@@ -433,6 +454,8 @@ def submit_slurm_job(id, fold, configuration, cont):
     cmd_line = f'nnUNetv2_train {dataset_num} {configuration} {fold} '
     if cont:
         cmd_line = cmd_line + ' --c'
+
+    #cmd_line = cmd_line + ' -num_gpus 4'
 
     log(f'cmd_line={cmd_line}')
 
@@ -519,11 +542,11 @@ def check_and_submit_tr_jobs():
     tr_cases = []
     for id in pp_completed_id_list:
         log(f'=== {id} ===')
+        s = status(id)
         if completed(id):
             log(f'\t{id} - Completed')
         else:
             log(f'\t{id} - NOT completed')
-            s = status(id)
             log(json.dumps(s, indent=4))
             log(f'missing folds={missing_folds_from_status(s)}')
             
