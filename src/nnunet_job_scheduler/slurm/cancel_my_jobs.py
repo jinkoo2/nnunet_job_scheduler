@@ -1,6 +1,8 @@
 if __name__ == '__main__':
     from nnunet_job_scheduler import slurm_commands
-    slurm_user = 'jinkokim'
+    from nnunet_job_scheduler.config import config
+
+    slurm_user = config['slurm_user']
     jobs = slurm_commands.get_jobs_of_user(slurm_user)
     job_ids = [job['jobid'] for job in jobs]
 
