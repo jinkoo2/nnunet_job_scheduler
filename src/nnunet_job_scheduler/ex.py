@@ -121,8 +121,8 @@ def upload_to_dashboard(id, configuration, zip_path):
 
     client.update_job_status(job_id, 'uploading')
 
-    log(f'Uploading model zip...')
-    model = client.upload_model(job_id, zip_path)
+    log(f'Uploading model zip (chunked)...')
+    model = client.upload_model_chunked(job_id, zip_path)
     model_id = model['id']
 
     client.update_job_status(job_id, 'done')

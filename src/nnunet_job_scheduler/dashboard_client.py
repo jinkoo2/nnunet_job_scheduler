@@ -54,11 +54,35 @@ class DashboardClient:
     def update_job_status(self, job_id: str, status: str) -> dict:
         return self._put(f'/api/jobs/{job_id}/status', json={'status': status})
 
-    def upload_model(self, job_id: str, zip_path: str) -> dict:
-        log(f'Uploading model to dashboard: job_id={job_id}, zip={zip_path}')
+    def upload_model_chunked(self, job_id: str, zip_path: str, chunk_size_mb: int = 50) -> dict:
+        """Upload a model ZIP in chunks to work around ingress body-size limits."""
+        chunk_size = chunk_size_mb * 1024 * 1024
+        file_size = os.path.getsize(zip_path)
+        total_chunks = (file_size + chunk_size - 1) // chunk_size
+
+        log(f'Chunked model upload: {zip_path} ({file_size / 1024 / 1024:.1f} MB, {total_chunks} chunks)')
+
+        # Init
+        resp = self._post(f'/api/jobs/{job_id}/model/upload/init', json={
+            'total_chunks': total_chunks,
+            'total_size': file_size,
+        })
+        upload_id = resp['upload_id']
+        log(f'Model upload session: {upload_id}')
+
+        # Upload chunks
         with open(zip_path, 'rb') as f:
-            return self._post(
-                f'/api/jobs/{job_id}/model',
-                files={'zip_file': (os.path.basename(zip_path), f, 'application/zip')},
-                timeout=3600,
-            )
+            for i in range(total_chunks):
+                data = f.read(chunk_size)
+                r = requests.post(
+                    f"{self.base}/api/jobs/{job_id}/model/upload/{upload_id}/chunk/{i}",
+                    headers=self.headers,
+                    data=data,
+                    timeout=300,
+                )
+                r.raise_for_status()
+                log(f'  chunk {i + 1}/{total_chunks} uploaded')
+
+        # Complete
+        log('Completing model upload...')
+        return self._post(f'/api/jobs/{job_id}/model/upload/{upload_id}/complete', timeout=120)
