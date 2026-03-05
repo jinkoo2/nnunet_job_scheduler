@@ -10,19 +10,80 @@ The scheduler runs as a background process and on each cycle (every 60 minutes):
 2. **Training** (`tr`) — finds preprocessing-complete datasets, checks which folds are missing checkpoints, and submits `nnUNetv2_train` SLURM jobs.
 3. **Export & Upload** (`ex`) — finds training-complete datasets (all 5 folds done), exports the model to a ZIP with `nnUNetv2_export_model_to_zip`, and uploads it to the nnunet-dashboard. A flag file (`dashboard_uploaded.txt`) prevents duplicate uploads.
 
-## Setup
+## Installation
+
+### 1. Create the virtual environment
 
 ```bash
-# Create and activate the venv
-conda activate nnunet_trainer   # or use the project venv
+cd nnunet_job_scheduler
+python3.12 -m venv _venv_3.12
+source _venv_3.12/bin/activate
+```
 
-# Install dependencies
-pip install -e .
-# or
+### 2. Install the package and dependencies
+
+```bash
+pip install --upgrade pip
+pip install poetry
 poetry install
+```
 
-# Configure
-cp .env.example .env   # if available, or edit .env directly
+Or without Poetry:
+
+```bash
+pip install -e .
+pip install python-dotenv requests
+```
+
+### 3. Configure `.env`
+
+Edit `.env` in the project root. At minimum set the paths and SLURM settings for your cluster:
+
+```bash
+# Example — adjust all paths and values for your environment
+venv_dir='/path/to/nnUNet_venv'          # venv that has nnunetv2 installed
+nnunet_dir='/path/to/nnUNet/src'
+data_dir='/path/to/nnunet_data'
+script_output_files_dir='/path/to/slurm_scripts'
+log_dir='/path/to/logs'
+case_status_list_dir='/path/to/case_status'
+nnunet_trainer='nnUNetTrainer'
+nnunet_planner='ExperimentPlanner'
+nnunet_plans='nnUNetPlans'
+slurm_user='your_username'
+slurm_email='your@email.com'
+slurm_partition='your_partition'
+slurm_num_of_nodes='1'
+slurm_num_of_tasks_per_node='1'
+slurm_num_of_hours='8'
+slurm_num_of_gpus_per_node='1'
+slurm_max_jobs_per_user='10'
+min_num_of_required_training_images='10'
+dashboard_url='https://nnunet-dashboard-1.apps.myphysics.net/'
+dashboard_api_key='your_api_key'
+dashboard_worker_name='nnunet_job_scheduler'
+```
+
+## Starting
+
+Activate the venv and run:
+
+```bash
+source _venv_3.12/bin/activate
+poetry run main
+```
+
+Or directly:
+
+```bash
+source _venv_3.12/bin/activate
+python -m nnunet_job_scheduler.app
+```
+
+The scheduler runs in the foreground, logging to `log_dir`, and wakes up every 60 minutes to check for new work. To keep it running after logout, use `nohup` or a `screen`/`tmux` session:
+
+```bash
+nohup poetry run main > nohup.out 2>&1 &
 ```
 
 ## Configuration (`.env`)
@@ -50,18 +111,6 @@ cp .env.example .env   # if available, or edit .env directly
 | `dashboard_url` | nnunet-dashboard base URL (e.g. `https://nnunet-dashboard-1.apps.myphysics.net/`) |
 | `dashboard_api_key` | API key for the dashboard (`X-Api-Key` header) |
 | `dashboard_worker_name` | Worker name to register with the dashboard (default: `nnunet_job_scheduler`) |
-
-## Running
-
-```bash
-poetry run main
-```
-
-Or directly:
-
-```bash
-python -m nnunet_job_scheduler.app
-```
 
 ## Dashboard Integration
 
