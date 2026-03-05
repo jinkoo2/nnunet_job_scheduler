@@ -31,6 +31,8 @@ def get_config():
     dashboard_url = os.getenv('dashboard_url', '')
     dashboard_api_key = os.getenv('dashboard_api_key', '')
     dashboard_worker_name = os.getenv('dashboard_worker_name', 'nnunet_job_scheduler')
+    enable_export_to_zip = os.getenv('enable_export_to_zip', 'true').strip().lower() == 'true'
+    enable_upload_to_dashboard = os.getenv('enable_upload_to_dashboard', 'false').strip().lower() == 'true'
 
     slurm_num_of_gpus_per_node = int(os.getenv('slurm_num_of_gpus_per_node'))
     
@@ -86,6 +88,8 @@ def get_config():
         'dashboard_url': dashboard_url,
         'dashboard_api_key': dashboard_api_key,
         'dashboard_worker_name': dashboard_worker_name,
+        'enable_export_to_zip': enable_export_to_zip,
+        'enable_upload_to_dashboard': enable_upload_to_dashboard,
     }
 
     return ret

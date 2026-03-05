@@ -133,31 +133,48 @@ def upload_to_dashboard(id, configuration, zip_path):
 
 def check_and_export_models():
     """
-    Find all training-completed datasets and upload their models to the dashboard.
-    Skips datasets that have already been uploaded (flag file present).
-    Skips silently if dashboard_url is not configured.
+    Find all training-completed datasets, export models to ZIP and/or upload to
+    the dashboard, depending on the enable_export_to_zip / enable_upload_to_dashboard flags.
     """
-    dashboard_url = config.get('dashboard_url', '')
-    if not dashboard_url:
-        log('dashboard_url not configured — skipping model export/upload.')
+    export_enabled = config.get('enable_export_to_zip', True)
+    upload_enabled = config.get('enable_upload_to_dashboard', False)
+
+    log(f'enable_export_to_zip={export_enabled}  enable_upload_to_dashboard={upload_enabled}')
+
+    if not export_enabled and not upload_enabled:
+        log('Both export and upload are disabled — skipping.')
         return
 
-    log('Looking for training-completed datasets to export and upload...')
+    log('Looking for training-completed datasets...')
     completed_ids = tr.get_completed_dataset_id_list()
     log(f'Training-completed datasets: {completed_ids}')
 
     for id in completed_ids:
-        if is_model_uploaded(id):
-            log(f'{id} — already uploaded to dashboard, skipping.')
-            continue
-
         configuration = _configuration_for(id)
-        log(f'{id} — exporting model (configuration={configuration})...')
         try:
-            zip_path = export_model(id, configuration)
-            model_id = upload_to_dashboard(id, configuration, zip_path)
-            _mark_uploaded(id, configuration, model_id)
-            log(f'{id} — model uploaded successfully (model_id={model_id})')
+            zip_path = None
+
+            if export_enabled:
+                zip_path = os.path.join(config['results_dir'], id, 'model.zip')
+                if os.path.exists(zip_path):
+                    size_mb = os.path.getsize(zip_path) / 1024 / 1024
+                    log(f'{id} — model.zip already exists ({size_mb:.1f} MB), skipping export.')
+                else:
+                    log(f'{id} — exporting model (configuration={configuration})...')
+                    zip_path = export_model(id, configuration)
+
+            if upload_enabled:
+                if is_model_uploaded(id):
+                    log(f'{id} — already uploaded to dashboard, skipping upload.')
+                    continue
+                if zip_path is None or not os.path.exists(zip_path):
+                    log(f'{id} — upload enabled but no ZIP found; enable_export_to_zip must be true first.')
+                    continue
+                log(f'{id} — uploading model to dashboard...')
+                model_id = upload_to_dashboard(id, configuration, zip_path)
+                _mark_uploaded(id, configuration, model_id)
+                log(f'{id} — uploaded successfully (model_id={model_id})')
+
         except Exception as e:
             log(f'{id} — export/upload failed: {e}')
             log_exception(e)

@@ -62,6 +62,8 @@ min_num_of_required_training_images='10'
 dashboard_url='https://nnunet-dashboard-1.apps.myphysics.net/'
 dashboard_api_key='your_api_key'
 dashboard_worker_name='nnunet_job_scheduler'
+enable_export_to_zip='true'
+enable_upload_to_dashboard='false'
 ```
 
 ## Starting
@@ -111,6 +113,8 @@ nohup poetry run main > nohup.out 2>&1 &
 | `dashboard_url` | nnunet-dashboard base URL (e.g. `https://nnunet-dashboard-1.apps.myphysics.net/`) |
 | `dashboard_api_key` | API key for the dashboard (`X-Api-Key` header) |
 | `dashboard_worker_name` | Worker name to register with the dashboard (default: `nnunet_job_scheduler`) |
+| `enable_export_to_zip` | Export trained model to ZIP after training completes (`true`/`false`, default: `true`) |
+| `enable_upload_to_dashboard` | Upload model ZIP to dashboard (`true`/`false`, default: `false`) |
 
 ## Dashboard Integration
 
