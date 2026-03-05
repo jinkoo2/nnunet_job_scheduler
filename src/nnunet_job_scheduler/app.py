@@ -1,7 +1,7 @@
 import time
 from nnunet_job_scheduler.logger import log, log_exception
 from nnunet_job_scheduler.config import config
-from nnunet_job_scheduler import pp, tr, pr, slurm
+from nnunet_job_scheduler import pp, tr, pr, ex, slurm
 
 def main():
 
@@ -28,6 +28,15 @@ def main():
             tr.check_and_submit_tr_jobs()
         except Exception as e:
             log('Exception in tr.check_and_submit_tr_jobs()!')
+            log_exception(e)
+
+        try:
+            log('=============================================')
+            log('====== ex.check_and_export_models() =========')
+            log('=============================================')
+            ex.check_and_export_models()
+        except Exception as e:
+            log('Exception in ex.check_and_export_models()!')
             log_exception(e)
 
         try:

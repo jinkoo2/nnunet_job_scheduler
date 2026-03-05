@@ -533,6 +533,15 @@ export nnUNet_n_proc_DA=4
     log(f'slurm jobs')
     log(json.dumps(jobs, indent=4))
   
+def get_completed_dataset_id_list():
+    """Return list of dataset IDs where all training folds are complete."""
+    result = []
+    for id in pp.get_completed_dataset_id_list():
+        if completed(id):
+            result.append(id)
+    return result
+
+
 def check_and_submit_tr_jobs():
     log('******** list of pp-completed datasets **************')
     pp_completed_id_list = pp.get_completed_dataset_id_list()

@@ -28,6 +28,10 @@ def get_config():
     slurm_partition = os.getenv('slurm_partition')
     slurm_max_jobs_per_user = int(os.getenv('slurm_max_jobs_per_user', '10'))
 
+    dashboard_url = os.getenv('dashboard_url', '')
+    dashboard_api_key = os.getenv('dashboard_api_key', '')
+    dashboard_worker_name = os.getenv('dashboard_worker_name', 'nnunet_job_scheduler')
+
     slurm_num_of_gpus_per_node = int(os.getenv('slurm_num_of_gpus_per_node'))
     
 
@@ -78,7 +82,10 @@ def get_config():
         'case_status_list_dir': case_status_list_dir,
         'slurm_jobs_dir':slurm_jobs_dir,
         'slurm_num_of_gpus_per_node':slurm_num_of_gpus_per_node,
-        'min_num_of_required_training_images': min_num_of_required_training_images
+        'min_num_of_required_training_images': min_num_of_required_training_images,
+        'dashboard_url': dashboard_url,
+        'dashboard_api_key': dashboard_api_key,
+        'dashboard_worker_name': dashboard_worker_name,
     }
 
     return ret
